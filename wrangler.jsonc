@@ -1,8 +1,8 @@
 {
-    "name": "my-worker",
+    "name": "calist",
     "compatibility_date": "2025-08-04",
     "assets": {
-      "directory": "./build/",
+      "directory": ".svelte-kit/cloudflare",
       "not_found_handling": "single-page-application"
     }
 }
