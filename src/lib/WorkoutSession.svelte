@@ -69,7 +69,12 @@
 	const totalDuration = $derived(steps?.reduce((acc, step) => acc + computeStepDuration(step), 0) || 0);
 
 	function computeStepDuration(step: Step) {
-		return step.duration * step.sets + step.rest * (step.sets - 1);
+		if (step.type === 'exercise') {
+			// For exercises: duration * sets + rest between sets + final rest before next exercise
+			return step.duration * step.sets + step.rest * (step.sets - 1) + step.rest;
+		}
+		// For rest steps, just return the duration
+		return step.duration;
 	}
 
 	const stepsWithTimes = $derived(
@@ -92,6 +97,7 @@
 	// Exercise display state
 	let showControls = $state(false);
 	let controlsTimeout: number | null = null;
+	let isFullscreen = $state(false);
 
 	// Show controls when paused
 	const shouldShowControls = $derived(showControls || !isPlaying);
@@ -120,6 +126,23 @@
 		showControlsTemporarily();
 	}
 
+	function toggleFullscreen() {
+		if (!document.fullscreenElement) {
+			// Enter fullscreen
+			const videoContainer = document.querySelector('.video-container');
+			if (videoContainer && videoContainer.requestFullscreen) {
+				videoContainer.requestFullscreen();
+				isFullscreen = true;
+			}
+		} else {
+			// Exit fullscreen
+			if (document.exitFullscreen) {
+				document.exitFullscreen();
+				isFullscreen = false;
+			}
+		}
+	}
+
 	// Exercise calculation logic
 	const stepRelativeTime = $derived(
 		currentStep ? Math.max(0, currentTime - (currentStepTime?.start ?? 0)) : 0
@@ -141,11 +164,26 @@
 		const exerciseDuration = currentStep.duration;
 		const restDuration = currentStep.rest;
 		const cycleTime = exerciseDuration + restDuration;
+		const totalExerciseTime = exerciseDuration * currentStep.sets + restDuration * (currentStep.sets - 1);
 
 		let timeInExercise = stepRelativeTime;
 		let currentSet = 1;
 		let isResting = false;
 		let timeLeftInPhase = 0;
+
+		// Check if we're in the final rest period
+		if (timeInExercise >= totalExerciseTime) {
+			// We're in the final rest period before the next exercise
+			isResting = true;
+			timeLeftInPhase = stepDuration - timeInExercise;
+			return {
+				currentSet: currentStep.sets,
+				totalSets: currentStep.sets,
+				isResting: true,
+				timeLeftInPhase: Math.max(0, timeLeftInPhase),
+				phaseType: 'rest'
+			};
+		}
 
 		// Find which set we're in
 		for (let set = 1; set <= currentStep.sets; set++) {
@@ -161,7 +199,7 @@
 					isResting = false;
 					timeLeftInPhase = exerciseEndTime - timeInExercise;
 				} else if (set < currentStep.sets) {
-					// We're in the rest phase
+					// We're in the rest phase between sets
 					isResting = true;
 					timeLeftInPhase = restEndTime - timeInExercise;
 				}
@@ -205,13 +243,18 @@
 		}
 	}
 
+	// Fullscreen change event listener
+	function handleFullscreenChange() {
+		isFullscreen = !!document.fullscreenElement;
+	}
+
 	// Cleanup timeout on destroy
 	onDestroy(() => {
 		if (controlsTimeout) clearTimeout(controlsTimeout);
 	});
 </script>
 
-<svelte:window on:keydown={handleKeyDown} />
+<svelte:window on:keydown={handleKeyDown} on:fullscreenchange={handleFullscreenChange} />
 
 {#if !steps || steps.length === 0}
 	<div class="mt-10 flex min-h-screen flex-col bg-base-100">
@@ -424,7 +467,7 @@
 							<div class="w-full overflow-hidden bg-base-100 transition-all duration-300">
 								<!-- YouTube-style Video Player Area with 16:9 Aspect Ratio -->
 								<div
-									class="relative aspect-video w-full overflow-hidden bg-base-300"
+									class="relative aspect-video w-full overflow-hidden bg-base-300 video-container"
 									role="button"
 									tabindex="0"
 									aria-label="Video player controls"
@@ -478,7 +521,7 @@
 										<!-- Rest Mode Overlay - Special layout for rest periods -->
 										{#if currentStep.type === 'exercise' && currentSetInfo.isResting}
 											<div
-												class="pointer-events-none absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/80 backdrop-blur-md"
+												class="pointer-events-none absolute inset-0 z-50 flex flex-col items-center justify-center bg-base-200 backdrop-blur-md"
 											>
 												<!-- Large centered timer -->
 												<div class="mb-4 text-center sm:mb-8">
@@ -487,14 +530,14 @@
 													>
 														Rest Time
 													</div>
-													<div class="text-4xl font-black text-white drop-shadow-2xl sm:text-6xl">
+													<div class="text-4xl font-black text-base-content drop-shadow-2xl sm:text-6xl">
 														{formatTime(Math.floor(currentSetInfo.timeLeftInPhase))}
 													</div>
 													<div
-														class="mt-2 flex items-center justify-center gap-2 text-lg font-semibold text-white/90 sm:mt-4 sm:text-xl"
+														class="mt-2 flex items-center justify-center gap-2 text-lg font-semibold text-base-content/90 sm:mt-4 sm:text-xl"
 													>
 														<div
-															class="badge badge-outline border-white/50 badge-md text-white sm:badge-lg"
+															class="badge badge-outline border-base-content/50 badge-md text-base-content sm:badge-lg"
 														>
 															Set {currentSetInfo.currentSet} of {currentSetInfo.totalSets}
 														</div>
@@ -522,7 +565,7 @@
 															/>
 														</div>
 														<div
-															class="mt-2 text-base font-bold text-white drop-shadow-lg sm:mt-3 sm:text-lg"
+															class="mt-2 text-base font-bold text-base-content drop-shadow-lg sm:mt-3 sm:text-lg"
 														>
 															{currentStep.label}
 														</div>
@@ -657,6 +700,35 @@
 
 															<!-- Right controls -->
 															<div class="flex items-center gap-2 sm:gap-3">
+																<!-- Fullscreen button -->
+																<button
+																	class="btn btn-circle border-none bg-white/10 text-white btn-sm hover:bg-white/20 sm:btn-md"
+																	onclick={toggleFullscreen}
+																	aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+																>
+																	{#if isFullscreen}
+																		<!-- Exit fullscreen icon -->
+																		<svg
+																			xmlns="http://www.w3.org/2000/svg"
+																			class="h-4 w-4 sm:h-5 sm:w-5"
+																			fill="currentColor"
+																			viewBox="0 0 24 24"
+																		>
+																			<path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/>
+																		</svg>
+																	{:else}
+																		<!-- Enter fullscreen icon -->
+																		<svg
+																			xmlns="http://www.w3.org/2000/svg"
+																			class="h-4 w-4 sm:h-5 sm:w-5"
+																			fill="currentColor"
+																			viewBox="0 0 24 24"
+																		>
+																			<path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
+																		</svg>
+																	{/if}
+																</button>
+
 																<!-- Exercise info -->
 																<div class="text-right">
 																	<div class="text-xs font-bold text-white sm:text-sm">

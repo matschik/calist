@@ -54,8 +54,8 @@ export const workouts: Workout[] = [
                 id: 1,
                 type: 'exercise',
                 label: 'Negative Push-ups',
-                duration: 35,
-                sets: 4,
+                duration: 50,
+                sets: 3,
                 reps: 8,
                 rest: 120,
                 content: {
