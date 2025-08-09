@@ -2,33 +2,16 @@
 	import { onDestroy } from 'svelte';
 	import Timeline from '$lib/Timeline.svelte';
 	import ImageGif from '$lib/ImageGif.svelte';
-
-	interface Step {
-		id: number;
-		type: 'rest' | 'exercise';
-		label: string;
-		duration: number;
-		sets: number;
-		reps: number;
-		rest: number;
-		content: {
-			imageUrl?: string;
-			description: string;
-			crop?: {
-				x: number;
-				y: number;
-				width: number;
-				height: number;
-			};
-		};
-	}
+	import type { Workout, WorkoutStep } from '$lib/data/workouts';
 
 	interface Props {
-		steps: Step[];
+		workout: Workout;
 		sessionName?: string;
 	}
 
-	let { steps, sessionName = 'Workout' }: Props = $props();
+	let { workout, sessionName }: Props = $props();
+	let steps = $derived(workout.steps);
+	let sessionNameDisplay = $derived(sessionName || workout.name);
 
 	let currentTime = $state(0);
 	let interval: number | undefined = $state(undefined);
@@ -68,7 +51,7 @@
 
 	const totalDuration = $derived(steps?.reduce((acc, step) => acc + computeStepDuration(step), 0) || 0);
 
-	function computeStepDuration(step: Step) {
+	function computeStepDuration(step: WorkoutStep) {
 		if (step.type === 'exercise') {
 			// For exercises: duration * sets + rest between sets + final rest before next exercise
 			return step.duration * step.sets + step.rest * (step.sets - 1) + step.rest;
@@ -294,7 +277,7 @@
 										<h1
 											class="mb-1 text-2xl font-black text-white drop-shadow-2xl sm:mb-2 sm:text-4xl"
 										>
-											{sessionName} Workout
+											{sessionNameDisplay} Workout
 										</h1>
 										<p class="text-lg font-medium text-white/90 sm:text-xl">
 											Get ready for an amazing workout session
@@ -396,7 +379,7 @@
 											Great Job!
 										</h2>
 										<p class="text-lg font-medium text-white/90 sm:text-xl">
-											You've completed the "{sessionName}" workout
+											You've completed the "{sessionNameDisplay}" workout
 										</p>
 									</div>
 

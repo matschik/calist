@@ -11,7 +11,7 @@
 </svelte:head>
 
 {#if workout}
-	<WorkoutSession steps={workout.steps} sessionName={workout.name} />
+	<WorkoutSession workout={workout} sessionName={workout.name} />
 {:else}
 	<div class="flex items-center justify-center min-h-screen">
 		<div class="text-center">
