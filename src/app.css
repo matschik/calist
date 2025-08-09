@@ -1,52 +1,7 @@
 @import 'tailwindcss';
-@plugin "daisyui";
+@plugin "daisyui" {
+  themes: retro --default;
+}
 @plugin '@tailwindcss/forms';
 @plugin '@tailwindcss/typography';
-
-/* Essential Custom Animations (can't be replaced with Tailwind) */
-
-/* Optimized custom scrollbar using DaisyUI color variables */
-::-webkit-scrollbar {
-  width: 6px;
-}
-
-::-webkit-scrollbar-track {
-  @apply bg-base-200;
-}
-
-::-webkit-scrollbar-thumb {
-  @apply bg-base-content/30 rounded-full transition-colors duration-200;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  @apply bg-base-content/50;
-}
-
-/* Enhanced focus states using DaisyUI colors */
-.btn:focus-visible,
-input:focus-visible,
-button:focus-visible {
-  @apply outline-2 outline-primary outline-offset-2;
-}
-
-/* Line clamp utilities (not available in Tailwind by default) */
-.line-clamp-2 {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  overflow: hidden;
-}
-
-.line-clamp-3 {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
-  line-clamp: 3;
-  overflow: hidden;
-}
-
-/* Smooth scrolling using Tailwind utility */
-html {
-  @apply scroll-smooth;
-}
+@plugin "tailwindcss-animate";

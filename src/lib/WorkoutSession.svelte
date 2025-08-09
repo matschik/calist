@@ -66,20 +66,20 @@
 		currentTime = time;
 	}
 
-	const totalDuration = $derived(steps.reduce((acc, step) => acc + computeStepDuration(step), 0));
+	const totalDuration = $derived(steps?.reduce((acc, step) => acc + computeStepDuration(step), 0) || 0);
 
 	function computeStepDuration(step: Step) {
 		return step.duration * step.sets + step.rest * (step.sets - 1);
 	}
 
 	const stepsWithTimes = $derived(
-		steps.map((step, index) => ({
+		steps?.map((step, index) => ({
 			id: step.id,
 			start: steps.slice(0, index).reduce((acc, step) => acc + computeStepDuration(step), 0),
 			end:
 				steps.slice(0, index).reduce((acc, step) => acc + computeStepDuration(step), 0) +
 				computeStepDuration(step)
-		}))
+		})) || []
 	);
 
 	let currentStepTime = $derived(
@@ -213,7 +213,20 @@
 
 <svelte:window on:keydown={handleKeyDown} />
 
-<div class="mt-10 flex min-h-screen flex-col bg-base-100">
+{#if !steps || steps.length === 0}
+	<div class="mt-10 flex min-h-screen flex-col bg-base-100">
+		<div class="container mx-auto h-full px-4">
+			<div class="flex items-center justify-center min-h-screen">
+				<div class="text-center">
+					<div class="text-6xl mb-4">⚠️</div>
+					<h2 class="text-2xl font-bold text-base-content mb-2">No workout data available</h2>
+					<p class="text-base-content/70">Please check your workout configuration.</p>
+				</div>
+			</div>
+		</div>
+	</div>
+{:else}
+	<div class="mt-10 flex min-h-screen flex-col bg-base-100">
 	<div class="container mx-auto h-full px-4">
 		<div class="flex min-h-0 flex-col gap-4 lg:h-full lg:flex-row">
 			<!-- Main Video/Exercise Area -->
@@ -807,6 +820,7 @@
 		</div>
 	</div>
 </div>
+{/if}
 
 <style>
 	@keyframes celebrationPulse {

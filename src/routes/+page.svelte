@@ -1,88 +1,93 @@
 <script lang="ts">
-	import { dndzone } from 'svelte-dnd-action';
-	import { flip } from 'svelte/animate';
-	import WorkoutSession from '$lib/WorkoutSession.svelte';
+	import { workouts } from '$lib/data/workouts.js';
 
-	const flipDurationMs = 200;
-
-	const session = {
-		name: 'Push Up'
-	};
-
-	let steps = $state([
-		{
-			id: 0,
-			type: 'rest' as const,
-			label: 'Getting ready',
-			duration: 10,
-			sets: 1,
-			reps: 1,
-			rest: 0,
-			content: {
-				imageUrl:
-					'https://media1.giphy.com/media/v1.Y2lkPTZjMDliOTUydHB3eXN4emg3YmZzazNzeXF4aHJxbXZkeDBnZjIyZWFzY29obzBqcCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/26gsrnofq3K6WuETu/source.gif',
-				description:
-					'Take a moment to prepare yourself. Get into position and focus on your breathing.'
-			}
-		},
-		{
-			id: 1,
-			type: 'exercise' as const,
-			label: 'Negative Push-ups',
-			duration: 35,
-			sets: 4,
-			reps: 8,
-			rest: 120,
-			content: {
-				imageUrl: 'https://fitnessfaqs.com/wp-content/uploads/2023/12/Negative-push-ups.gif',
-				description:
-					'Start in plank position. Lower your body slowly to the ground over 3-5 seconds. Reset to starting position.'
-			}
-		},
-		{
-			id: 2,
-			type: 'exercise' as const,
-			label: 'Scapula Push-ups',
-			duration: 45,
-			sets: 4,
-			reps: 8,
-			rest: 120,
-			content: {
-				imageUrl:
-					'https://www.exploreparkour.com/wp-content/uploads/2020/08/Exercise-Scapular-Push-Up-SM.gif',
-				description:
-					'In plank position, focus on squeezing and releasing your shoulder blades while keeping arms straight.',
-				crop: {
-					x: 0, // Position horizontale (%)
-					y: 100, // Position verticale (%)
-					width: 100, // Largeur (%)
-					height: 0 // Hauteur (%) - recadre le bas de l'image
-				}
-			}
-		},
-		{
-			id: 3,
-			type: 'exercise' as const,
-			label: 'Plank Hold',
-			duration: 60,
-			sets: 4,
-			reps: 1,
-			rest: 60,
-			content: {
-				imageUrl: 'https://i.pinimg.com/originals/b1/3a/19/b13a19da8641ca4cf235891ac20b2f54.gif',
-				description:
-					'Hold a strong plank position. Keep your core tight, back straight, and maintain steady breathing.'
-			},
-		}
-	]);
-
-	function handleSort(e: CustomEvent<{ items: typeof steps }>) {
-		steps = e.detail.items;
+	// Helper functions to extract data from workout structure
+	function getDifficulty(workout: any): string {
+		const exerciseSteps = workout.steps.filter((step: any) => step.type === 'exercise');
+		const avgReps = exerciseSteps.reduce((sum: number, step: any) => sum + step.reps, 0) / exerciseSteps.length;
+		const avgSets = exerciseSteps.reduce((sum: number, step: any) => sum + step.sets, 0) / exerciseSteps.length;
+		
+		if (avgReps <= 10 && avgSets <= 3) return 'Beginner';
+		if (avgReps <= 15 && avgSets <= 4) return 'Intermediate';
+		return 'Advanced';
 	}
+
+	function getDuration(workout: any): string {
+		const totalDuration = workout.steps.reduce((sum: number, step: any) => {
+			return sum + (step.duration * step.sets) + (step.rest * (step.sets - 1));
+		}, 0);
+		return `${Math.ceil(totalDuration / 60)} min`;
+	}
+
+	function getExerciseCount(workout: any): number {
+		return workout.steps.filter((step: any) => step.type === 'exercise').length;
+	}
+
+
 </script>
 
 <svelte:head>
-	<title>Calist</title>
+	<title>Calist - Workouts</title>
+	<meta name="description" content="Calisthenics workouts for all levels" />
 </svelte:head>
 
-<WorkoutSession {steps} sessionName={session.name} />
+<!-- All Workouts Section -->
+<section class="py-12 bg-base-50">
+	<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+		<div class="flex items-center justify-between mb-8">
+			<h2 class="text-2xl font-bold text-base-content">Workouts</h2>
+		</div>
+		
+		<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+			{#each workouts as workout, index}
+				<a href="/workout/{workout.slug}" class="block bg-base-100 rounded-lg shadow-sm hover:shadow-md transition-shadow border border-base-300 overflow-hidden hover:scale-[1.02] transition-transform duration-200">
+					<!-- Workout Image -->
+					<figure class="relative overflow-hidden h-48">
+						<img 
+							src={workout.steps.find(step => step.type === 'exercise')?.content.imageUrl || 'https://via.placeholder.com/400x200?text=Workout'} 
+							alt={workout.name}
+							class="w-full h-full object-cover"
+						/>
+						<div class="absolute top-3 right-3">
+							<span class="px-2 py-1 bg-base-100/90 text-base-content text-xs font-medium rounded-full">
+								{getDifficulty(workout)}
+							</span>
+						</div>
+					</figure>
+					
+					<!-- Workout Content -->
+					<div class="p-6">
+						<h3 class="text-lg font-semibold text-base-content mb-2">{workout.name}</h3>
+						<p class="text-base-content/70 text-sm mb-4 line-clamp-2">{workout.description}</p>
+						
+						<!-- Stats -->
+						<div class="flex items-center gap-4 mb-4 text-xs text-base-content/50">
+							<span class="flex items-center gap-1">
+								💪 {getExerciseCount(workout)} exercises
+							</span>
+							<span class="flex items-center gap-1">
+								⏱️ {getDuration(workout)}
+							</span>
+						</div>
+						
+						<!-- CTA -->
+						<div class="btn btn-primary w-full text-center text-sm cursor-pointer">
+							Start Workout
+						</div>
+					</div>
+				</a>
+			{/each}
+		</div>
+	</div>
+</section>
+
+<!-- Recent Activity Section (placeholder for future features) -->
+<section class="py-12 bg-base-100">
+	<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+		<h2 class="text-2xl font-bold text-base-content mb-6">Recent Activity</h2>
+		<div class="bg-base-200 rounded-lg p-8 text-center border border-base-300">
+			<span class="text-4xl mb-4 block">📊</span>
+			<p class="text-base-content/70">Track your progress and view workout history here</p>
+		</div>
+	</div>
+</section>
