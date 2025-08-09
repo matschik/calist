@@ -40,7 +40,7 @@
 		
 		<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 			{#each workouts as workout, index}
-				<a href="/workout/{workout.slug}" class="block bg-base-100 rounded-lg shadow-sm hover:shadow-md transition-shadow border border-base-300 overflow-hidden hover:scale-[1.02] transition-transform duration-200">
+				<a href="/workout/{workout.slug}" class="block bg-base-100 rounded-lg shadow-sm hover:shadow-md border border-base-300 overflow-hidden hover:scale-[1.02] transition-all duration-200">
 					<!-- Workout Image -->
 					<figure class="relative overflow-hidden h-48">
 						<img 
