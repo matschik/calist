@@ -18,7 +18,7 @@
 
 	function formatTime(seconds: number): string {
 		const mins = Math.floor(seconds / 60);
-		const secs = seconds % 60;
+		const secs = Math.floor(seconds % 60);
 		return `${mins}:${String(secs).padStart(2, '0')}`;
 	}
 
@@ -27,7 +27,7 @@
 		const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
 		const clickX = e.clientX - rect.left;
 		const progress = clickX / rect.width;
-		const newTime = Math.floor(progress * totalDuration);
+		const newTime = Math.round(progress * totalDuration * 10) / 10; // Round to nearest 100ms
 		onSeek(Math.max(0, Math.min(totalDuration, newTime)));
 	}
 
@@ -54,7 +54,7 @@
 			e.preventDefault();
 			// For keyboard navigation, seek to current hover position or current position
 			if (hoverProgress !== null) {
-				const newTime = Math.floor(hoverProgress * totalDuration);
+				const newTime = Math.round(hoverProgress * totalDuration * 10) / 10; // Round to nearest 100ms
 				onSeek(Math.max(0, Math.min(totalDuration, newTime)));
 			}
 		} else if (e.key === 'ArrowLeft') {
@@ -90,7 +90,7 @@
 	function handleTimelineTouchEnd(e: TouchEvent) {
 		e.preventDefault();
 		if (isTouching && hoverProgress !== null) {
-			const newTime = Math.floor(hoverProgress * totalDuration);
+			const newTime = Math.round(hoverProgress * totalDuration * 10) / 10; // Round to nearest 100ms
 			onSeek(Math.max(0, Math.min(totalDuration, newTime)));
 		}
 		isTouching = false;
@@ -144,7 +144,7 @@
 					class="absolute bottom-full mb-2 px-2 py-1 bg-black/80 text-white text-xs rounded backdrop-blur-sm pointer-events-none"
 					style="left: {hoverProgress * 100}%; transform: translateX(-50%)"
 				>
-					{formatTime(Math.floor(hoverProgress * totalDuration))}
+					{formatTime(hoverProgress * totalDuration)}
 				</div>
 			{/if}
 		</div>
