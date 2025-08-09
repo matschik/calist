@@ -159,13 +159,8 @@
 		<div class="border-t border-base-content/20 mt-16 pt-10">
 			<div class="flex flex-col md:flex-row justify-between items-center">
 				<p class="text-base-content/70 text-base font-medium">
-					© 2024 Calist. Built for strength, designed for growth.
+					© 2025 Calist. Built for strength, designed for growth.
 				</p>
-				<div class="flex items-center space-x-6 mt-6 md:mt-0">
-					<span class="text-2xl">💪</span>
-					<span class="text-2xl">🚀</span>
-					<span class="text-2xl">✨</span>
-				</div>
 			</div>
 		</div>
 	</div>

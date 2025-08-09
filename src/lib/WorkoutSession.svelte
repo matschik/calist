@@ -649,7 +649,7 @@
 
 																<!-- Time display -->
 																<div
-																	class="hidden font-mono text-xs text-white/80 sm:block sm:text-sm"
+																	class="font-mono text-xs text-white/80 sm:text-sm"
 																>
 																	{formatTime(currentTime)} / {formatTime(totalDuration)}
 																</div>
@@ -669,11 +669,6 @@
 																	{/if}
 																</div>
 															</div>
-														</div>
-
-														<!-- Mobile time display -->
-														<div class="mt-2 text-center font-mono text-xs text-white/80 sm:hidden">
-															{formatTime(currentTime)} / {formatTime(totalDuration)}
 														</div>
 													{/if}
 												</div>
