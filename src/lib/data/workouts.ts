@@ -94,6 +94,28 @@ export const db = {
             ]
         },
         {
+            id: "c97d8e45-6f2a-4b8c-9e1f-7a3b5c9d8e1f",
+            title: "Pull Ups lvl 1",
+            tags: ["lvl 1"],
+            description: 'Build pulling strength and work towards your first pull-up',
+            benefits: ['Back muscles', 'Lat development', 'Grip strength'],
+            exerciceLoops: [
+                {
+                    exercices: [
+                        {
+                            id: "e8f9a123-4567-89ab-cdef-0123456789ab",
+                            reps: 15
+                        },
+                        {
+                            id: "f1b2c3d4-5e6f-7890-abcd-ef1234567890"
+                        }
+                    ],
+                    sets: 3,
+                    rest: 120
+                }
+            ]
+        },
+        {
             id: "b86c4e67-3993-477d-89e1-d21eadd98736",
             title: "Squats lvl 1",
             tags: ["lvl 1"],
@@ -129,28 +151,6 @@ export const db = {
                 }
             ]
         },
-        {
-            id: "c97d8e45-6f2a-4b8c-9e1f-7a3b5c9d8e1f",
-            title: "Pull Ups lvl 1",
-            tags: ["lvl 1"],
-            description: 'Build pulling strength and work towards your first pull-up',
-            benefits: ['Back muscles', 'Lat development', 'Grip strength'],
-            exerciceLoops: [
-                {
-                    exercices: [
-                        {
-                            id: "e8f9a123-4567-89ab-cdef-0123456789ab",
-                            reps: 15
-                        },
-                        {
-                            id: "f1b2c3d4-5e6f-7890-abcd-ef1234567890"
-                        }
-                    ],
-                    sets: 3,
-                    rest: 120
-                }
-            ]
-        }
     ]
 }
 

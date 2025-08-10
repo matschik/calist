@@ -517,20 +517,6 @@
 												class="btn bg-white font-bold text-primary shadow-xl btn-md hover:bg-white/90 sm:btn-lg"
 												onclick={startTimer}
 											>
-												<svg
-													xmlns="http://www.w3.org/2000/svg"
-													class="h-5 w-5 sm:h-6 sm:w-6"
-													fill="none"
-													viewBox="0 0 24 24"
-													stroke="currentColor"
-												>
-													<path
-														stroke-linecap="round"
-														stroke-linejoin="round"
-														stroke-width="2"
-														d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h6m2 5H7a2 2 0 01-2-2V9a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2z"
-													/>
-												</svg>
 												<span class="hidden sm:inline">Start Workout</span>
 												<span class="sm:hidden">Start</span>
 											</button>
@@ -622,20 +608,7 @@
 												class="btn border-white/30 bg-white/20 text-white backdrop-blur-sm btn-md hover:bg-white/30 sm:btn-lg"
 												onclick={resetTimer}
 											>
-												<svg
-													xmlns="http://www.w3.org/2000/svg"
-													class="h-4 w-4 sm:h-5 sm:w-5"
-													fill="none"
-													viewBox="0 0 24 24"
-													stroke="currentColor"
-												>
-													<path
-														stroke-linecap="round"
-														stroke-linejoin="round"
-														stroke-width="2"
-														d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-													/>
-												</svg>
+												<span class="iconify ph--arrow-clockwise size-4 sm:size-5" aria-hidden="true"></span>
 												<span class="hidden sm:inline">Restart Workout</span>
 												<span class="sm:hidden">Restart</span>
 											</button>
@@ -1013,27 +986,13 @@
 																		onclick={isPlaying ? pauseTimer : startTimer}
 																		aria-label={isPlaying ? 'Pause' : 'Play'}
 																	>
-																		{#if isPlaying}
-																			<!-- Pause icon -->
-																			<svg
-																				xmlns="http://www.w3.org/2000/svg"
-																				class="h-4 w-4 sm:h-5 sm:w-5"
-																				fill="currentColor"
-																				viewBox="0 0 24 24"
-																			>
-																				<path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
-																			</svg>
-																		{:else}
-																			<!-- Play icon -->
-																			<svg
-																				xmlns="http://www.w3.org/2000/svg"
-																				class="h-4 w-4 sm:h-5 sm:w-5"
-																				fill="currentColor"
-																				viewBox="0 0 24 24"
-																			>
-																				<path d="M8 5v14l11-7z" />
-																			</svg>
-																		{/if}
+																																			{#if isPlaying}
+																		<!-- Pause icon -->
+																		<span class="iconify ph--pause size-4 sm:size-5" aria-hidden="true"></span>
+																	{:else}
+																		<!-- Play icon -->
+																		<span class="iconify ph--play size-4 sm:size-5" aria-hidden="true"></span>
+																	{/if}
 																	</button>
 
 																	<!-- Sound control (mute/unmute) -->
@@ -1042,16 +1001,7 @@
 																		aria-label="Mute/Unmute"
 																	>
 																		<!-- Volume icon -->
-																		<svg
-																			xmlns="http://www.w3.org/2000/svg"
-																			class="h-4 w-4 sm:h-5 sm:w-5"
-																			fill="currentColor"
-																			viewBox="0 0 24 24"
-																		>
-																			<path
-																				d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"
-																			/>
-																		</svg>
+																		<span class="iconify ph--speaker-high size-4 sm:size-5" aria-hidden="true"></span>
 																	</button>
 
 																	<!-- Time display -->
@@ -1070,54 +1020,14 @@
 																			? 'Exit fullscreen'
 																			: 'Enter fullscreen'}
 																	>
-																		{#if isFullscreen}
-																			<!-- Exit fullscreen icon -->
-																			<svg
-																				xmlns="http://www.w3.org/2000/svg"
-																				class="h-4 w-4 sm:h-5 sm:w-5"
-																				fill="currentColor"
-																				viewBox="0 0 24 24"
-																			>
-																				<path
-																					d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"
-																				/>
-																			</svg>
-																		{:else}
-																			<!-- Enter fullscreen icon -->
-																			<svg
-																				xmlns="http://www.w3.org/2000/svg"
-																				class="h-4 w-4 sm:h-5 sm:w-5"
-																				fill="currentColor"
-																				viewBox="0 0 24 24"
-																			>
-																				<path
-																					d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"
-																				/>
-																			</svg>
-																		{/if}
+																																			{#if isFullscreen}
+																		<!-- Exit fullscreen icon -->
+																		<span class="iconify ph--arrows-out-simple size-4 sm:size-5" aria-hidden="true"></span>
+																	{:else}
+																		<!-- Enter fullscreen icon -->
+																		<span class="iconify ph--arrows-in-simple size-4 sm:size-5" aria-hidden="true"></span>
+																	{/if}
 																	</button>
-
-																	<!-- Exercise info -->
-																	<div class="text-right">
-																		<div class="text-xs font-bold text-white sm:text-sm">
-																			{currentStep.label}
-																		</div>
-																		{#if currentStep.type === 'exercise'}
-																			<div class="text-xs text-white/60">
-																				{#if currentStep.exercises && currentStep.exercises.length > 1}
-																					{#if currentSetInfo.isTransitioning}
-																						Switching exercises
-																					{:else}
-																						{(currentSetInfo.currentExerciseIndex || 0) + 1} of {currentStep
-																							.exercises.length} × {currentStep.sets} sets
-																					{/if}
-																				{:else}
-																					{#if currentStep.reps > 1}{currentStep.reps} reps ×
-																					{/if}{currentStep.sets} sets
-																				{/if}
-																			</div>
-																		{/if}
-																	</div>
 																</div>
 															</div>
 														{/if}
@@ -1183,14 +1093,7 @@
 																class="absolute inset-0 flex items-center justify-center bg-black/50"
 															>
 																<div class="badge badge-sm badge-success">
-																	<svg
-																		xmlns="http://www.w3.org/2000/svg"
-																		class="h-3 w-3"
-																		fill="currentColor"
-																		viewBox="0 0 24 24"
-																	>
-																		<path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
-																	</svg>
+																	<span class="iconify ph--check size-3" aria-hidden="true"></span>
 																</div>
 															</div>
 														{:else if isCurrentStep}
@@ -1198,14 +1101,7 @@
 																class="absolute inset-0 flex items-center justify-center bg-primary/30"
 															>
 																<div class="badge animate-pulse badge-sm badge-primary">
-																	<svg
-																		xmlns="http://www.w3.org/2000/svg"
-																		class="h-3 w-3"
-																		fill="currentColor"
-																		viewBox="0 0 24 24"
-																	>
-																		<path d="M8 5v14l11-7z" />
-																	</svg>
+																	<span class="iconify ph--play size-3" aria-hidden="true"></span>
 																</div>
 															</div>
 														{/if}

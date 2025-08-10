@@ -68,9 +68,7 @@
 				class="md:hidden p-2 rounded-lg text-base-content hover:text-primary hover:bg-base-200 transition-colors"
 				aria-label="Toggle menu"
 			>
-				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-6 h-6">
-					<path d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" stroke-linecap="round" stroke-linejoin="round" />
-				</svg>
+				<span class="iconify ph--list size-6" aria-hidden="true"></span>
 			</button>
 		</div>
 

@@ -40,3 +40,8 @@
 @plugin '@tailwindcss/forms';
 @plugin '@tailwindcss/typography';
 @plugin "tailwindcss-animate";
+@plugin "@iconify/tailwind4";
+@plugin "@iconify/tailwind4" {
+	prefix: 'iconify';
+	prefixes: ph, simple-icons;
+}
