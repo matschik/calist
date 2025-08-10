@@ -6,8 +6,7 @@
 
 	const navigation = [
 		{ name: 'Home', href: '/' },
-		//{ name: 'Workouts', href: '/#workouts' },
-		{ name: 'Start Training', href: '/workout/push-up', primary: true }
+		{ name: 'Start Training', href: '/workout/push-ups-lvl-1', primary: true }
 	];
 
 	let isMenuOpen = $state(false);

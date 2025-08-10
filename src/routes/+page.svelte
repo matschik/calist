@@ -1,29 +1,31 @@
 <script lang="ts">
-	import { workouts } from '$lib/data/workouts.js';
-
-	// Helper functions to extract data from workout structure
-	function getDifficulty(workout: any): string {
-		const exerciseSteps = workout.steps.filter((step: any) => step.type === 'exercise');
-		const avgReps = exerciseSteps.reduce((sum: number, step: any) => sum + step.reps, 0) / exerciseSteps.length;
-		const avgSets = exerciseSteps.reduce((sum: number, step: any) => sum + step.sets, 0) / exerciseSteps.length;
-		
-		if (avgReps <= 10 && avgSets <= 3) return 'Beginner';
-		if (avgReps <= 15 && avgSets <= 4) return 'Intermediate';
-		return 'Advanced';
-	}
+	import { db } from '$lib/data/workouts.js';
 
 	function getDuration(workout: any): string {
-		const totalDuration = workout.steps.reduce((sum: number, step: any) => {
-			return sum + (step.duration * step.sets) + (step.rest * (step.sets - 1));
+		// Calculate total duration based on exerciceLoops
+		const totalDuration = workout.exerciceLoops.reduce((sum: number, loop: any) => {
+			return sum + (loop.sets * 60) + (loop.rest * (loop.sets - 1)); // Assuming 60 seconds per set
 		}, 0);
 		return `${Math.ceil(totalDuration / 60)} min`;
 	}
 
 	function getExerciseCount(workout: any): number {
-		return workout.steps.filter((step: any) => step.type === 'exercise').length;
+		return workout.exerciceLoops.length;
 	}
 
+	function getWorkoutImage(workout: any): string {
+		// Get the first exercise from the first loop to display as workout image
+		if (workout.exerciceLoops.length > 0 && workout.exerciceLoops[0].exercices.length > 0) {
+			const firstExerciseId = workout.exerciceLoops[0].exercices[0].id;
+			const exercise = db.exercices.find(ex => ex.id === firstExerciseId);
+			return exercise?.images[0]?.url || 'https://via.placeholder.com/400x200?text=Workout';
+		}
+		return 'https://via.placeholder.com/400x200?text=Workout';
+	}
 
+	function getWorkoutSlug(workout: any): string {
+		return workout.title.toLowerCase().replace(/\s+/g, '-');
+	}
 </script>
 
 <svelte:head>
@@ -39,25 +41,20 @@
 		</div>
 		
 		<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-			{#each workouts as workout, index}
-				<a href="/workout/{workout.slug}" class="block bg-base-100 rounded-lg shadow-sm hover:shadow-md border border-base-300 overflow-hidden hover:scale-[1.02] transition-all duration-200">
+			{#each db.workouts as workout, index}
+				<a href="/workout/{getWorkoutSlug(workout)}" class="block bg-base-100 rounded-lg shadow-sm hover:shadow-md border border-base-300 overflow-hidden hover:scale-[1.02] transition-all duration-200">
 					<!-- Workout Image -->
 					<figure class="relative overflow-hidden h-48">
 						<img 
-							src={workout.steps.find(step => step.type === 'exercise')?.content.imageUrl || 'https://via.placeholder.com/400x200?text=Workout'} 
-							alt={workout.name}
+							src={getWorkoutImage(workout)} 
+							alt={workout.title}
 							class="w-full h-full object-cover"
 						/>
-						<div class="absolute top-3 right-3">
-							<span class="px-2 py-1 bg-base-100/90 text-base-content text-xs font-medium rounded-full">
-								{getDifficulty(workout)}
-							</span>
-						</div>
 					</figure>
 					
 					<!-- Workout Content -->
 					<div class="p-6">
-						<h3 class="text-lg font-semibold text-base-content mb-2">{workout.name}</h3>
+						<h3 class="text-lg font-semibold text-base-content mb-2">{workout.title}</h3>
 						<p class="text-base-content/70 text-sm mb-4 line-clamp-2">{workout.description}</p>
 						
 						<!-- Stats -->

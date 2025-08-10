@@ -2,16 +2,15 @@
 	import { onDestroy } from 'svelte';
 	import Timeline from '$lib/Timeline.svelte';
 	import ImageGif from '$lib/ImageGif.svelte';
-	import type { Workout, WorkoutStep } from '$lib/data/workouts';
+	import type { Workout, ExerciseLoop } from '$lib/data/workouts';
+	import { getExerciseById } from '$lib/data/workouts';
 
 	interface Props {
 		workout: Workout;
-		sessionName?: string;
 	}
 
-	let { workout, sessionName }: Props = $props();
-	let steps = $derived(workout.steps);
-	let sessionNameDisplay = $derived(sessionName || workout.name);
+	let { workout }: Props = $props();
+	let exerciceLoops = $derived(workout.exerciceLoops);
 
 	let currentTime = $state(0);
 	let interval: number | undefined = $state(undefined);
@@ -49,12 +48,137 @@
 		currentTime = time;
 	}
 
-	const totalDuration = $derived(steps?.reduce((acc, step) => acc + computeStepDuration(step), 0) || 0);
+	// Convert exerciceLoops to a flat array of steps for the timeline
+	function createSteps() {
+		const flatSteps: Array<{
+			id: number;
+			type: 'exercise' | 'rest';
+			label: string;
+			duration: number;
+			sets: number;
+			reps: number;
+			rest: number;
+			exercises: Array<{
+				id: string;
+				title: string;
+				reps: number;
+				imageUrl: string;
+				description: string;
+				crop?: {
+					x: number;
+					y: number;
+					width: number;
+					height: number;
+				};
+			}>;
+			content: {
+				imageUrl: string;
+				description: string;
+				crop?: {
+					x: number;
+					y: number;
+					width: number;
+					height: number;
+				};
+			};
+		}> = [];
 
-	function computeStepDuration(step: WorkoutStep) {
+		let stepId = 0;
+
+		// Add getting ready step
+		flatSteps.push({
+			id: stepId++,
+			type: 'rest',
+			label: 'Getting ready',
+			duration: 10,
+			sets: 1,
+			reps: 1,
+			rest: 0,
+			exercises: [],
+			content: {
+				imageUrl:
+					'https://media1.giphy.com/media/v1.Y2lkPTZjMDliOTUydHB3eXN4emg3YmZzazNzeXF4aHJxbXZkeDBnZjIyZWFzY29obzBqcCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/26gsrnofq3K6WuETu/source.gif',
+				description:
+					'Take a moment to prepare yourself. Get into position and focus on your breathing.'
+			}
+		});
+
+		// Convert each exerciceLoop to a single step that contains all exercises
+		for (const loop of exerciceLoops) {
+			const exercises = [];
+			let combinedLabel = '';
+
+			// Collect all exercises in this loop
+			for (const exerciseRef of loop.exercices) {
+				const exercise = getExerciseById(exerciseRef.id);
+				if (exercise) {
+					exercises.push({
+						id: exerciseRef.id,
+						title: exercise.title,
+						reps: exerciseRef.reps || 1,
+						imageUrl: exercise.images[0]?.url || '',
+						description: exercise.description,
+						crop: exercise.images[0]?.crop
+					});
+
+					// Build combined label
+					if (combinedLabel) {
+						combinedLabel += ' + ';
+					}
+					combinedLabel += exercise.title;
+				}
+			}
+
+			// Add "Superset" prefix if there are multiple exercises
+			if (exercises.length > 1) {
+				combinedLabel = `Superset: ${combinedLabel}`;
+			}
+
+			if (exercises.length > 0) {
+				// Create a single step for the exercise loop (whether single exercise or superset)
+				const firstExercise = exercises[0];
+				flatSteps.push({
+					id: stepId++,
+					type: 'exercise',
+					label: combinedLabel,
+					duration: 60, // Default duration per exercise
+					sets: loop.sets,
+					reps: exercises[0].reps, // Use first exercise reps for display
+					rest: loop.rest,
+					exercises: exercises,
+					content: {
+						imageUrl: firstExercise.imageUrl,
+						description: firstExercise.description,
+						crop: firstExercise.crop
+					}
+				});
+			}
+		}
+
+		return flatSteps;
+	}
+
+	const steps = $derived(createSteps());
+
+	const totalDuration = $derived(
+		steps?.reduce((acc, step) => acc + computeStepDuration(step), 0) || 0
+	);
+
+	function computeStepDuration(step: any) {
 		if (step.type === 'exercise') {
-			// For exercises: duration * sets + rest between sets + final rest before next exercise
-			return step.duration * step.sets + step.rest * (step.sets - 1) + step.rest;
+			const transitionDuration = 10; // 10 seconds to switch between exercises in superset
+			const totalExercises = step.exercises?.length || 1;
+
+			if (totalExercises > 1) {
+				// For supersets: exercise duration * number of exercises * sets + transition time between exercises (but not after the last exercise) + rest between sets
+				const totalExerciseTime = step.duration * totalExercises * step.sets;
+				const totalTransitionTime = transitionDuration * (totalExercises - 1) * step.sets; // Only between exercises, not after the last one
+				const totalRestTime = step.rest * (step.sets - 1);
+				return totalExerciseTime + totalTransitionTime + totalRestTime;
+			} else {
+				// For single exercises: duration * sets + rest between sets + final rest before next exercise
+				return step.duration * step.sets + step.rest * (step.sets - 1) + step.rest;
+			}
 		}
 		// For rest steps, just return the duration
 		return step.duration;
@@ -146,16 +270,26 @@
 		// For exercises, we need to calculate which set and whether we're in exercise or rest
 		const exerciseDuration = currentStep.duration;
 		const restDuration = currentStep.rest;
-		const cycleTime = exerciseDuration + restDuration;
-		const totalExerciseTime = exerciseDuration * currentStep.sets + restDuration * (currentStep.sets - 1);
+		const transitionDuration = 10; // 10 seconds to switch between exercises in superset
+		const totalExercises = currentStep.exercises?.length || 1;
+
+		// For supersets: exercise duration * number of exercises * sets + transition time between exercises (but not after the last exercise) + rest between sets
+		const totalExerciseTime = exerciseDuration * totalExercises * currentStep.sets;
+		const totalTransitionTime = transitionDuration * (totalExercises - 1) * currentStep.sets; // Only between exercises, not after the last one
+		const totalRestTime = restDuration * (currentStep.sets - 1);
+		const totalTime = totalExerciseTime + totalTransitionTime + totalRestTime;
+		const cycleTime =
+			exerciseDuration * totalExercises + transitionDuration * (totalExercises - 1) + restDuration;
 
 		let timeInExercise = stepRelativeTime;
 		let currentSet = 1;
 		let isResting = false;
+		let isTransitioning = false;
 		let timeLeftInPhase = 0;
+		let currentExerciseIndex = 0;
 
 		// Check if we're in the final rest period
-		if (timeInExercise >= totalExerciseTime) {
+		if (timeInExercise >= totalTime) {
 			// We're in the final rest period before the next exercise
 			isResting = true;
 			timeLeftInPhase = stepDuration - timeInExercise;
@@ -163,28 +297,80 @@
 				currentSet: currentStep.sets,
 				totalSets: currentStep.sets,
 				isResting: true,
+				isTransitioning: false,
 				timeLeftInPhase: Math.max(0, timeLeftInPhase),
-				phaseType: 'rest'
+				phaseType: 'rest',
+				currentExerciseIndex: totalExercises - 1
 			};
 		}
 
-		// Find which set we're in
+		// Find which set we're in and which exercise within the set
 		for (let set = 1; set <= currentStep.sets; set++) {
 			const setStartTime = (set - 1) * cycleTime;
-			const exerciseEndTime = setStartTime + exerciseDuration;
-			const restEndTime = set < currentStep.sets ? exerciseEndTime + restDuration : exerciseEndTime;
+			const setExerciseTime =
+				setStartTime +
+				exerciseDuration * totalExercises +
+				transitionDuration * (totalExercises - 1);
+			const restEndTime = set < currentStep.sets ? setExerciseTime + restDuration : setExerciseTime;
 
 			if (timeInExercise >= setStartTime && timeInExercise < restEndTime) {
 				currentSet = set;
 
-				if (timeInExercise < exerciseEndTime) {
-					// We're in the exercise phase
-					isResting = false;
-					timeLeftInPhase = exerciseEndTime - timeInExercise;
+				if (timeInExercise < setExerciseTime) {
+					// We're in the exercise phase of this set
+					const timeInSet = timeInExercise - setStartTime;
+					const exerciseTimePerExercise = exerciseDuration;
+					const transitionTimeBetweenExercises = transitionDuration;
+
+					// Calculate which exercise we're in and how much time has passed
+					let accumulatedTime = 0;
+
+					for (let i = 0; i < totalExercises; i++) {
+						const exerciseStart = accumulatedTime;
+						const exerciseEnd = exerciseStart + exerciseTimePerExercise;
+
+						if (timeInSet >= exerciseStart && timeInSet < exerciseEnd) {
+							// We're in the exercise phase of this exercise
+							currentExerciseIndex = i;
+							const timeInCurrentExercise = timeInSet - exerciseStart;
+							isResting = false;
+							isTransitioning = false;
+							timeLeftInPhase = exerciseTimePerExercise - timeInCurrentExercise;
+							break;
+						}
+
+						// Check if we're in the transition phase after this exercise
+						const transitionStart = exerciseEnd;
+						const transitionEnd = transitionStart + transitionTimeBetweenExercises;
+
+						if (
+							timeInSet >= transitionStart &&
+							timeInSet < transitionEnd &&
+							i < totalExercises - 1
+						) {
+							// We're in the transition phase between exercises (but not after the last exercise)
+							currentExerciseIndex = i;
+							const timeInTransition = timeInSet - transitionStart;
+							isResting = false;
+							isTransitioning = true;
+							timeLeftInPhase = transitionTimeBetweenExercises - timeInTransition;
+							break;
+						}
+
+						// Move to next exercise - only add transition time if there's a next exercise
+						if (i < totalExercises - 1) {
+							accumulatedTime += exerciseTimePerExercise + transitionTimeBetweenExercises;
+						} else {
+							// For the last exercise, only add the exercise time (no transition after)
+							accumulatedTime += exerciseTimePerExercise;
+						}
+					}
 				} else if (set < currentStep.sets) {
 					// We're in the rest phase between sets
 					isResting = true;
+					isTransitioning = false;
 					timeLeftInPhase = restEndTime - timeInExercise;
+					currentExerciseIndex = totalExercises - 1; // Last exercise of the set
 				}
 				break;
 			}
@@ -194,8 +380,10 @@
 			currentSet,
 			totalSets: currentStep.sets,
 			isResting,
+			isTransitioning,
 			timeLeftInPhase: Math.max(0, timeLeftInPhase),
-			phaseType: isResting ? 'rest' : 'exercise'
+			phaseType: isResting ? 'rest' : isTransitioning ? 'transition' : 'exercise',
+			currentExerciseIndex
 		};
 	});
 
@@ -242,10 +430,10 @@
 {#if !steps || steps.length === 0}
 	<div class="mt-10 flex min-h-screen flex-col bg-base-100">
 		<div class="container mx-auto h-full px-4">
-			<div class="flex items-center justify-center min-h-screen">
+			<div class="flex min-h-screen items-center justify-center">
 				<div class="text-center">
-					<div class="text-6xl mb-4">⚠️</div>
-					<h2 class="text-2xl font-bold text-base-content mb-2">No workout data available</h2>
+					<div class="mb-4 text-6xl">⚠️</div>
+					<h2 class="mb-2 text-2xl font-bold text-base-content">No workout data available</h2>
 					<p class="text-base-content/70">Please check your workout configuration.</p>
 				</div>
 			</div>
@@ -253,623 +441,852 @@
 	</div>
 {:else}
 	<div class="mt-10 flex min-h-screen flex-col bg-base-100">
-	<div class="container mx-auto h-full px-4">
-		<div class="flex min-h-0 flex-col gap-4 lg:h-full lg:flex-row">
-			<!-- Main Video/Exercise Area -->
-			<div class="flex min-h-0 flex-1 flex-col lg:overflow-hidden">
-				<!-- Exercise Display with Fixed Height -->
-				<div class="mb-3 min-h-0 flex-1">
-					{#if isWorkoutNotStarted}
-						<!-- Start Screen -->
-						<div class="animate-in slide-in-from-bottom-4 h-full duration-500">
-							<div
-								class="relative aspect-video w-full overflow-hidden bg-gradient-to-br from-primary via-blue-500 to-indigo-600"
-							>
-								<div class="absolute inset-0 flex flex-col items-center justify-center text-white">
-									<!-- Welcome Section -->
-									<div class="mb-4 text-center sm:mb-8">
-										<div class="start-emoji mb-2 text-6xl sm:mb-4 sm:text-8xl">💪</div>
-										<div
-											class="mb-2 badge badge-md font-bold tracking-wider text-primary-content uppercase shadow-lg badge-primary sm:mb-4 sm:badge-lg"
-										>
-											Ready to Start
-										</div>
-										<h1
-											class="mb-1 text-2xl font-black text-white drop-shadow-2xl sm:mb-2 sm:text-4xl"
-										>
-											{sessionNameDisplay} Workout
-										</h1>
-										<p class="text-lg font-medium text-white/90 sm:text-xl">
-											Get ready for an amazing workout session
-										</p>
-									</div>
-
-									<!-- Workout Preview -->
+		<div class="container mx-auto h-full px-4">
+			<div class="flex min-h-0 flex-col gap-4 lg:h-full lg:flex-row">
+				<!-- Main Video/Exercise Area -->
+				<div class="flex min-h-0 flex-1 flex-col lg:overflow-hidden">
+					<!-- Exercise Display with Fixed Height -->
+					<div class="mb-3 min-h-0 flex-1">
+						{#if isWorkoutNotStarted}
+							<!-- Start Screen -->
+							<div class="h-full duration-500 animate-in slide-in-from-bottom-4">
+								<div class="relative aspect-video w-full overflow-hidden bg-primary">
 									<div
-										class="mb-4 rounded-2xl bg-black/20 p-4 text-center backdrop-blur-sm sm:mb-8 sm:p-6"
+										class="absolute inset-0 flex flex-col items-center justify-center text-white"
 									>
-										<div class="grid grid-cols-3 gap-3 text-center sm:gap-6">
-											<div>
-												<div class="text-lg font-bold text-white sm:text-2xl">
-													{steps.filter((s) => s.type === 'exercise').length}
-												</div>
-												<div class="text-xs tracking-wide text-white/80 uppercase sm:text-sm">
-													Exercises
-												</div>
-											</div>
-											<div>
-												<div class="text-lg font-bold text-white sm:text-2xl">
-													{Math.floor(totalDuration / 60)}:{String(totalDuration % 60).padStart(
-														2,
-														'0'
-													)}
-												</div>
-												<div class="text-xs tracking-wide text-white/80 uppercase sm:text-sm">
-													Duration
-												</div>
-											</div>
-											<div>
-												<div class="text-lg font-bold text-white sm:text-2xl">
-													{steps
-														.filter((s) => s.type === 'exercise')
-														.reduce((acc, s) => acc + s.sets, 0)}
-												</div>
-												<div class="text-xs tracking-wide text-white/80 uppercase sm:text-sm">
-													Total Sets
-												</div>
-											</div>
-										</div>
-									</div>
-
-									<!-- Action Buttons -->
-									<div class="flex gap-4">
-										<button
-											class="btn bg-white font-bold text-primary shadow-xl btn-md hover:bg-white/90 sm:btn-lg"
-											onclick={startTimer}
-										>
-											<svg
-												xmlns="http://www.w3.org/2000/svg"
-												class="h-5 w-5 sm:h-6 sm:w-6"
-												fill="none"
-												viewBox="0 0 24 24"
-												stroke="currentColor"
+										<!-- Welcome Section -->
+										<div class="mb-4 text-center sm:mb-8">
+											<div class="start-emoji mb-2 text-6xl sm:mb-4 sm:text-8xl">💪</div>
+											<div
+												class="mb-2 badge badge-md font-bold tracking-wider text-primary-content uppercase shadow-lg badge-primary sm:mb-4 sm:badge-lg"
 											>
-												<path
-													stroke-linecap="round"
-													stroke-linejoin="round"
-													stroke-width="2"
-													d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h6m2 5H7a2 2 0 01-2-2V9a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2z"
-												/>
-											</svg>
-											<span class="hidden sm:inline">Start Workout</span>
-											<span class="sm:hidden">Start</span>
-										</button>
-									</div>
+												Ready to Start
+											</div>
+											<h1
+												class="mb-1 text-2xl font-black text-white drop-shadow-2xl sm:mb-2 sm:text-4xl"
+											>
+												{workout.title} Workout
+											</h1>
+											<p class="text-lg font-medium text-white/90 sm:text-xl">
+												Get ready for an amazing workout session
+											</p>
+										</div>
 
-									<!-- Quick Tip -->
-									<div class="mt-4 text-center sm:mt-6">
-										<div class="text-xs text-white/70 sm:text-sm">
-											💡 <strong>Tip:</strong> Press
-											<kbd class="kbd bg-white/20 kbd-xs text-white sm:kbd-sm">Space</kbd> to pause/resume
-										</div>
-									</div>
-								</div>
-							</div>
-						</div>
-					{:else if isWorkoutFinished}
-						<!-- Finish Screen -->
-						<div class="animate-in slide-in-from-bottom-4 h-full duration-500">
-							<div
-								class="relative aspect-video w-full overflow-hidden bg-gradient-to-br from-success via-green-600 to-emerald-600"
-							>
-								<div class="absolute inset-0 flex flex-col items-center justify-center text-white">
-									<!-- Celebration Animation -->
-									<div class="mb-4 text-center sm:mb-8">
-										<div class="celebration-emoji mb-2 animate-bounce text-6xl sm:mb-4 sm:text-8xl">
-											🎉
-										</div>
+										<!-- Workout Preview -->
 										<div
-											class="mb-2 badge badge-md font-bold tracking-wider text-success-content uppercase shadow-lg badge-success sm:mb-4 sm:badge-lg"
+											class="mb-4 rounded-2xl bg-black/20 p-4 text-center backdrop-blur-sm sm:mb-8 sm:p-6"
 										>
-											Workout Complete!
-										</div>
-										<h2
-											class="mb-1 text-2xl font-black text-white drop-shadow-2xl sm:mb-2 sm:text-4xl"
-										>
-											Great Job!
-										</h2>
-										<p class="text-lg font-medium text-white/90 sm:text-xl">
-											You've completed the "{sessionNameDisplay}" workout
-										</p>
-									</div>
-
-									<!-- Workout Summary -->
-									<div
-										class="mb-4 rounded-2xl bg-black/20 p-4 text-center backdrop-blur-sm sm:mb-8 sm:p-6"
-									>
-										<div class="grid grid-cols-3 gap-3 text-center sm:gap-6">
-											<div>
-												<div class="text-lg font-bold text-white sm:text-2xl">{steps.length}</div>
-												<div class="text-xs tracking-wide text-white/80 uppercase sm:text-sm">
-													Exercises
+											<div class="grid grid-cols-3 gap-3 text-center sm:gap-6">
+												<div>
+													<div class="text-lg font-bold text-white sm:text-2xl">
+														{steps
+															.filter((s) => s.type === 'exercise')
+															.reduce((total, step) => total + (step.exercises?.length || 1), 0)}
+													</div>
+													<div class="text-xs tracking-wide text-white/80 uppercase sm:text-sm">
+														Exercises
+													</div>
 												</div>
-											</div>
-											<div>
-												<div class="text-lg font-bold text-white sm:text-2xl">
-													{Math.floor(totalDuration / 60)}:{String(totalDuration % 60).padStart(
-														2,
-														'0'
-													)}
+												<div>
+													<div class="text-lg font-bold text-white sm:text-2xl">
+														{Math.floor(totalDuration / 60)}:{String(totalDuration % 60).padStart(
+															2,
+															'0'
+														)}
+													</div>
+													<div class="text-xs tracking-wide text-white/80 uppercase sm:text-sm">
+														Duration
+													</div>
 												</div>
-												<div class="text-xs tracking-wide text-white/80 uppercase sm:text-sm">
-													Duration
-												</div>
-											</div>
-											<div>
-												<div class="text-lg font-bold text-white sm:text-2xl">
-													{steps
-														.filter((s) => s.type === 'exercise')
-														.reduce((acc, s) => acc + s.sets, 0)}
-												</div>
-												<div class="text-xs tracking-wide text-white/80 uppercase sm:text-sm">
-													Total Sets
+												<div>
+													<div class="text-lg font-bold text-white sm:text-2xl">
+														{steps
+															.filter((s) => s.type === 'exercise')
+															.reduce((acc, s) => acc + s.sets, 0)}
+													</div>
+													<div class="text-xs tracking-wide text-white/80 uppercase sm:text-sm">
+														Total Sets
+													</div>
 												</div>
 											</div>
 										</div>
-									</div>
 
-									<!-- Action Buttons -->
-									<div class="flex gap-4">
-										<button
-											class="btn border-white/30 bg-white/20 text-white backdrop-blur-sm btn-md hover:bg-white/30 sm:btn-lg"
-											onclick={resetTimer}
-										>
-											<svg
-												xmlns="http://www.w3.org/2000/svg"
-												class="h-4 w-4 sm:h-5 sm:w-5"
-												fill="none"
-												viewBox="0 0 24 24"
-												stroke="currentColor"
+										<!-- Action Buttons -->
+										<div class="flex gap-4">
+											<button
+												class="btn bg-white font-bold text-primary shadow-xl btn-md hover:bg-white/90 sm:btn-lg"
+												onclick={startTimer}
 											>
-												<path
-													stroke-linecap="round"
-													stroke-linejoin="round"
-													stroke-width="2"
-													d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-												/>
-											</svg>
-											<span class="hidden sm:inline">Restart Workout</span>
-											<span class="sm:hidden">Restart</span>
-										</button>
-									</div>
-								</div>
-							</div>
-						</div>
-					{:else if currentStep}
-						<div class="animate-in slide-in-from-bottom-4 h-full duration-500">
-							<div class="w-full overflow-hidden bg-base-100 transition-all duration-300">
-								<!-- YouTube-style Video Player Area with 16:9 Aspect Ratio -->
-								<div
-									class="relative aspect-video w-full overflow-hidden bg-base-300 video-container"
-									role="button"
-									tabindex="0"
-									aria-label="Video player controls"
-									onmouseenter={handleMouseEnter}
-									onmouseleave={handleMouseLeave}
-									onclick={handleVideoClick}
-									onkeydown={(e) => {
-										if (e.key === 'Enter' || e.key === ' ') {
-											e.preventDefault();
-											handleVideoClick();
-										}
-									}}
-								>
-									<div class="absolute inset-0 h-full w-full">
-										{#if currentStep.content?.imageUrl}
-											{#if currentStep.content.imageUrl.endsWith('.gif')}
-												<ImageGif
-													isFrozen={!isPlaying}
-													src={currentStep.content.imageUrl}
-													alt={currentStep.label}
-													class="h-full w-full object-cover transition-all duration-300"
-													style={currentStep.content.crop
-														? `object-position: ${currentStep.content.crop.x}% ${currentStep.content.crop.y}%; object-fit: cover;`
-														: 'object-fit: cover;'}
-													loading="lazy"
-													decoding="async"
-												/>
-											{:else}
-												<img
-													src={currentStep.content.imageUrl}
-													alt={currentStep.label}
-													class="h-full w-full object-cover transition-all duration-300"
-													style={currentStep.content.crop
-														? `object-position: ${currentStep.content.crop.x}% ${currentStep.content.crop.y}%; object-fit: cover;`
-														: 'object-fit: cover;'}
-													loading="lazy"
-													decoding="async"
-												/>
-											{/if}
-										{:else}
-											<div
-												class="to-base-400 flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-base-300"
-											>
-												<div class="mb-2 text-4xl text-white/80 sm:mb-4 sm:text-6xl">🏋️</div>
-												<p class="text-base font-medium text-white/60 sm:text-lg">
-													{currentStep.label}
-												</p>
-											</div>
-										{/if}
-
-										<!-- Rest Mode Overlay - Special layout for rest periods -->
-										{#if currentStep.type === 'exercise' && currentSetInfo.isResting}
-											<div
-												class="pointer-events-none absolute inset-0 z-50 flex flex-col items-center justify-center bg-base-200 backdrop-blur-md"
-											>
-												<!-- Large centered timer -->
-												<div class="mb-4 text-center sm:mb-8">
-													<div
-														class="mb-2 badge badge-md font-bold tracking-wider text-warning-content uppercase shadow-lg badge-warning sm:mb-4 sm:badge-lg"
-													>
-														Rest Time
-													</div>
-													<div class="text-4xl font-black text-base-content drop-shadow-2xl sm:text-6xl">
-														{formatTime(Math.floor(currentSetInfo.timeLeftInPhase))}
-													</div>
-													<div
-														class="mt-2 flex items-center justify-center gap-2 text-lg font-semibold text-base-content/90 sm:mt-4 sm:text-xl"
-													>
-														<div
-															class="badge badge-outline border-base-content/50 badge-md text-base-content sm:badge-lg"
-														>
-															Set {currentSetInfo.currentSet} of {currentSetInfo.totalSets}
-														</div>
-													</div>
-												</div>
-
-												<!-- Small image below with "up next" -->
-												{#if currentStep.content?.imageUrl}
-													<div class="text-center">
-														<div
-															class="mb-2 badge badge-xs font-semibold tracking-wide text-neutral-content uppercase badge-neutral sm:mb-3 sm:badge-sm"
-														>
-															Next
-														</div>
-														<div
-															class="inline-block scale-75 overflow-hidden rounded-xl border-4 border-white/20 shadow-2xl sm:scale-75"
-														>
-															<img
-																src={currentStep.content.imageUrl}
-																alt={currentStep.label}
-																class="h-20 w-28 object-cover sm:h-24 sm:w-32"
-																style={currentStep.content.crop
-																	? `object-position: ${currentStep.content.crop.x}% ${currentStep.content.crop.y}%; object-fit: cover;`
-																	: 'object-fit: cover;'}
-															/>
-														</div>
-														<div
-															class="mt-2 text-base font-bold text-base-content drop-shadow-lg sm:mt-3 sm:text-lg"
-														>
-															{currentStep.label}
-														</div>
-													</div>
-												{/if}
-											</div>
-										{/if}
-
-										<!-- Exercise Info - Top Left -->
-										{#if !(currentStep.type === 'exercise' && currentSetInfo.isResting)}
-											<div
-												class="absolute top-2 left-2 z-50 rounded-xl border border-white/20 bg-black/80 px-3 py-2 shadow-xl backdrop-blur-md sm:top-4 sm:left-4 sm:rounded-2xl sm:px-6 sm:py-4"
-											>
-												<div class="text-sm font-bold text-white drop-shadow-lg sm:text-lg">
-													{currentStep.label}
-												</div>
-												{#if currentStep.type === 'exercise'}
-													<div class="mt-1 text-xs text-white/80 sm:text-sm">
-														{#if currentStep.reps > 1}{currentStep.reps} reps{/if}
-													</div>
-												{/if}
-											</div>
-										{/if}
-
-										<!-- Countdown Timer - Always Visible (except during rest) -->
-										{#if !(currentStep.type === 'exercise' && currentSetInfo.isResting)}
-											<div
-												class="absolute top-2 right-2 z-50 rounded-xl border border-white/20 bg-black/80 px-3 py-2 shadow-xl backdrop-blur-md sm:top-4 sm:right-4 sm:rounded-2xl sm:px-6 sm:py-4"
-											>
-												<div
-													class="mb-1 text-xs font-medium tracking-wide text-white/80 uppercase sm:mb-2 sm:text-sm"
+												<svg
+													xmlns="http://www.w3.org/2000/svg"
+													class="h-5 w-5 sm:h-6 sm:w-6"
+													fill="none"
+													viewBox="0 0 24 24"
+													stroke="currentColor"
 												>
-													{#if currentStep.type === 'exercise'}
-														{#if currentSetInfo.isResting}
-															<span class="badge badge-xs badge-warning sm:badge-sm">Rest</span>
-														{:else}
-															<span class="badge badge-xs badge-success sm:badge-sm"
-																>Set {currentSetInfo.currentSet}/{currentSetInfo.totalSets}</span
-															>
-														{/if}
+													<path
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														stroke-width="2"
+														d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h6m2 5H7a2 2 0 01-2-2V9a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2z"
+													/>
+												</svg>
+												<span class="hidden sm:inline">Start Workout</span>
+												<span class="sm:hidden">Start</span>
+											</button>
+										</div>
+
+										<!-- Quick Tip -->
+										<div class="mt-4 text-center sm:mt-6">
+											<div class="text-xs text-white/70 sm:text-sm">
+												💡 <strong>Tip:</strong> Press
+												<kbd class="kbd bg-white/20 kbd-xs text-white sm:kbd-sm">Space</kbd> to pause/resume
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+						{:else if isWorkoutFinished}
+							<!-- Finish Screen -->
+							<div class="h-full duration-500 animate-in slide-in-from-bottom-4">
+								<div
+									class="relative aspect-video w-full overflow-hidden bg-gradient-to-br from-success via-green-600 to-emerald-600"
+								>
+									<div
+										class="absolute inset-0 flex flex-col items-center justify-center text-white"
+									>
+										<!-- Celebration Animation -->
+										<div class="mb-4 text-center sm:mb-8">
+											<div
+												class="celebration-emoji mb-2 animate-bounce text-6xl sm:mb-4 sm:text-8xl"
+											>
+												🎉
+											</div>
+											<div
+												class="mb-2 badge badge-md font-bold tracking-wider text-success-content uppercase shadow-lg badge-success sm:mb-4 sm:badge-lg"
+											>
+												Workout Complete!
+											</div>
+											<h2
+												class="mb-1 text-2xl font-black text-white drop-shadow-2xl sm:mb-2 sm:text-4xl"
+											>
+												Great Job!
+											</h2>
+											<p class="text-lg font-medium text-white/90 sm:text-xl">
+												You've completed the "{workout.title}" workout
+											</p>
+										</div>
+
+										<!-- Workout Summary -->
+										<div
+											class="mb-4 rounded-2xl bg-black/20 p-4 text-center backdrop-blur-sm sm:mb-8 sm:p-6"
+										>
+											<div class="grid grid-cols-3 gap-3 text-center sm:gap-6">
+												<div>
+													<div class="text-lg font-bold text-white sm:text-2xl">
+														{steps
+															.filter((s) => s.type === 'exercise')
+															.reduce((total, step) => total + (step.exercises?.length || 1), 0)}
+													</div>
+													<div class="text-xs tracking-wide text-white/80 uppercase sm:text-sm">
+														Exercises
+													</div>
+												</div>
+												<div>
+													<div class="text-lg font-bold text-white sm:text-2xl">
+														{Math.floor(totalDuration / 60)}:{String(totalDuration % 60).padStart(
+															2,
+															'0'
+														)}
+													</div>
+													<div class="text-xs tracking-wide text-white/80 uppercase sm:text-sm">
+														Duration
+													</div>
+												</div>
+												<div>
+													<div class="text-lg font-bold text-white sm:text-2xl">
+														{steps
+															.filter((s) => s.type === 'exercise')
+															.reduce((acc, s) => acc + s.sets, 0)}
+													</div>
+													<div class="text-xs tracking-wide text-white/80 uppercase sm:text-sm">
+														Total Sets
+													</div>
+												</div>
+											</div>
+										</div>
+
+										<!-- Action Buttons -->
+										<div class="flex gap-4">
+											<button
+												class="btn border-white/30 bg-white/20 text-white backdrop-blur-sm btn-md hover:bg-white/30 sm:btn-lg"
+												onclick={resetTimer}
+											>
+												<svg
+													xmlns="http://www.w3.org/2000/svg"
+													class="h-4 w-4 sm:h-5 sm:w-5"
+													fill="none"
+													viewBox="0 0 24 24"
+													stroke="currentColor"
+												>
+													<path
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														stroke-width="2"
+														d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+													/>
+												</svg>
+												<span class="hidden sm:inline">Restart Workout</span>
+												<span class="sm:hidden">Restart</span>
+											</button>
+										</div>
+									</div>
+								</div>
+							</div>
+						{:else if currentStep}
+							<div class="h-full duration-500 animate-in slide-in-from-bottom-4">
+								<div class="w-full overflow-hidden bg-base-100 transition-all duration-300">
+									<!-- YouTube-style Video Player Area with 16:9 Aspect Ratio -->
+									<div
+										class="video-container relative aspect-video w-full overflow-hidden bg-base-300"
+										role="button"
+										tabindex="0"
+										aria-label="Video player controls"
+										onmouseenter={handleMouseEnter}
+										onmouseleave={handleMouseLeave}
+										onclick={handleVideoClick}
+										onkeydown={(e) => {
+											if (e.key === 'Enter' || e.key === ' ') {
+												e.preventDefault();
+												handleVideoClick();
+											}
+										}}
+									>
+										<div class="absolute inset-0 h-full w-full">
+											{#if currentStep.type === 'exercise' && currentStep.exercises && currentStep.exercises.length > 1}
+												{@const currentExercise =
+													currentStep.exercises[currentSetInfo.currentExerciseIndex || 0]}
+												{#if currentExercise?.imageUrl}
+													{#if currentExercise.imageUrl.endsWith('.gif')}
+														<ImageGif
+															isFrozen={!isPlaying}
+															src={currentExercise.imageUrl}
+															alt={currentExercise.title}
+															class="h-full w-full object-cover transition-all duration-300"
+															style={currentExercise.crop
+																? `object-position: ${currentExercise.crop.x}% ${currentExercise.crop.y}%; object-fit: cover;`
+																: 'object-fit: cover;'}
+															loading="lazy"
+															decoding="async"
+														/>
 													{:else}
-														<span class="badge badge-xs badge-info sm:badge-sm"
-															>{currentStep.label}</span
+														<img
+															src={currentExercise.imageUrl}
+															alt={currentExercise.title}
+															class="h-full w-full object-cover transition-all duration-300"
+															style={currentExercise.crop
+																? `object-position: ${currentExercise.crop.x}% ${currentExercise.crop.y}%; object-fit: cover;`
+																: 'object-fit: cover;'}
+															loading="lazy"
+															decoding="async"
+														/>
+													{/if}
+												{:else}
+													<div
+														class="to-base-400 flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-base-300"
+													>
+														<div class="mb-2 text-4xl text-white/80 sm:mb-4 sm:text-6xl">🏋️</div>
+														<p class="text-base font-medium text-white/60 sm:text-lg">
+															{currentExercise.title}
+														</p>
+													</div>
+												{/if}
+											{:else if currentStep.content?.imageUrl}
+												{#if currentStep.content.imageUrl.endsWith('.gif')}
+													<ImageGif
+														isFrozen={!isPlaying}
+														src={currentStep.content.imageUrl}
+														alt={currentStep.label}
+														class="h-full w-full object-cover transition-all duration-300"
+														style={currentStep.content.crop
+															? `object-position: ${currentStep.content.crop.x}% ${currentStep.content.crop.y}%; object-fit: cover;`
+															: 'object-fit: cover;'}
+														loading="lazy"
+														decoding="async"
+													/>
+												{:else}
+													<img
+														src={currentStep.content.imageUrl}
+														alt={currentStep.label}
+														class="h-full w-full object-cover transition-all duration-300"
+														style={currentStep.content.crop
+															? `object-position: ${currentStep.content.crop.x}% ${currentStep.content.crop.y}%; object-fit: cover;`
+															: 'object-fit: cover;'}
+														loading="lazy"
+														decoding="async"
+													/>
+												{/if}
+											{:else}
+												<div
+													class="to-base-400 flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-base-300"
+												>
+													<div class="mb-2 text-4xl text-white/80 sm:mb-4 sm:text-6xl">🏋️</div>
+													<p class="text-base font-medium text-white/60 sm:text-lg">
+														{currentStep.label}
+													</p>
+												</div>
+											{/if}
+
+											<!-- Rest Mode Overlay - Special layout for rest periods -->
+											{#if currentStep.type === 'exercise' && currentSetInfo.isResting}
+												<div
+													class="pointer-events-none absolute inset-0 z-50 flex flex-col items-center justify-center bg-base-200 backdrop-blur-md"
+												>
+													<!-- Large centered timer -->
+													<div class="mb-4 text-center sm:mb-8">
+														<div
+															class="mb-2 badge badge-md font-bold tracking-wider text-warning-content uppercase shadow-lg badge-warning sm:mb-4 sm:badge-lg"
 														>
+															Rest Time
+														</div>
+														<div
+															class="text-4xl font-black text-base-content drop-shadow-2xl sm:text-6xl"
+														>
+															{formatTime(Math.floor(currentSetInfo.timeLeftInPhase))}
+														</div>
+													</div>
+
+													<!-- Small image below with "up next" -->
+													{#if currentStep.type === 'exercise' && currentStep.exercises && currentStep.exercises.length > 1}
+														{@const nextExerciseIndex =
+															(currentSetInfo.currentExerciseIndex || 0) + 1}
+														{@const nextExercise =
+															nextExerciseIndex < currentStep.exercises.length
+																? currentStep.exercises[nextExerciseIndex]
+																: currentStep.exercises[0]}
+														{#if nextExercise?.imageUrl}
+															<div class="text-center">
+																<div
+																	class="mb-2 badge badge-xs font-semibold tracking-wide text-neutral-content uppercase badge-neutral sm:mb-3 sm:badge-sm"
+																>
+																	Next
+																</div>
+																<div
+																	class="inline-block scale-75 overflow-hidden rounded-xl border-4 border-white/20 shadow-2xl sm:scale-75"
+																>
+																	<img
+																		src={nextExercise.imageUrl}
+																		alt={nextExercise.title}
+																		class="h-20 w-28 object-cover sm:h-24 sm:w-32"
+																		style={nextExercise.crop
+																			? `object-position: ${nextExercise.crop.x}% ${nextExercise.crop.y}%; object-fit: cover;`
+																			: 'object-fit: cover;'}
+																	/>
+																</div>
+																<div
+																	class="mt-2 text-base font-bold text-base-content drop-shadow-lg sm:mt-3 sm:text-lg"
+																>
+																	{nextExercise.title}
+																</div>
+															</div>
+														{/if}
+													{:else if currentStep.content?.imageUrl}
+														<div class="text-center">
+															<div
+																class="mb-2 badge badge-xs font-semibold tracking-wide text-neutral-content uppercase badge-neutral sm:mb-3 sm:badge-sm"
+															>
+																Next
+															</div>
+															<div
+																class="inline-block scale-75 overflow-hidden rounded-xl border-4 border-white/20 shadow-2xl sm:scale-75"
+															>
+																<img
+																	src={currentStep.content.imageUrl}
+																	alt={currentStep.label}
+																	class="h-20 w-28 object-cover sm:h-24 sm:w-32"
+																	style={currentStep.content.crop
+																		? `object-position: ${currentStep.content.crop.x}% ${currentStep.content.crop.y}%; object-fit: cover;`
+																		: 'object-fit: cover;'}
+																/>
+															</div>
+															<div
+																class="mt-2 text-base font-bold text-base-content drop-shadow-lg sm:mt-3 sm:text-lg"
+															>
+																{currentStep.label}
+															</div>
+														</div>
 													{/if}
 												</div>
+											{/if}
+
+											<!-- Transition Mode Overlay - Special layout for switching between exercises in superset -->
+											{#if currentStep.type === 'exercise' && currentSetInfo.isTransitioning}
 												<div
-													class="font-mono text-xl font-black text-white drop-shadow-lg sm:text-3xl"
+													class="transition-overlay pointer-events-none absolute inset-0 z-50 flex flex-col items-center justify-center bg-info/20 backdrop-blur-md"
 												>
-													{formatTime(Math.floor(currentSetInfo.timeLeftInPhase))}
+													<!-- Large centered timer -->
+													<div class="mb-4 text-center sm:mb-8">
+														<div
+															class="mb-2 badge badge-md font-bold tracking-wider text-info-content uppercase shadow-lg badge-info sm:mb-4 sm:badge-lg"
+														>
+															Switch Exercise
+														</div>
+														<div
+															class="text-4xl font-black text-base-content drop-shadow-2xl sm:text-6xl"
+														>
+															{formatTime(Math.floor(currentSetInfo.timeLeftInPhase))}
+														</div>
+													</div>
+
+													<!-- Current and next exercise display -->
+													{#if currentStep.type === 'exercise' && currentStep.exercises && currentStep.exercises.length > 1}
+														{@const currentExercise =
+															currentStep.exercises[currentSetInfo.currentExerciseIndex || 0]}
+														{@const nextExerciseIndex =
+															(currentSetInfo.currentExerciseIndex || 0) + 1}
+														{@const nextExercise =
+															nextExerciseIndex < currentStep.exercises.length
+																? currentStep.exercises[nextExerciseIndex]
+																: currentStep.exercises[0]}
+														<div class="flex items-center gap-4 text-center">
+															<!-- Current exercise -->
+															{#if currentExercise?.imageUrl}
+																<div class="text-center">
+																	<div
+																		class="mb-2 badge badge-xs font-semibold tracking-wide text-neutral-content uppercase badge-neutral sm:mb-3 sm:badge-sm"
+																	>
+																		Current
+																	</div>
+																	<div
+																		class="inline-block scale-75 overflow-hidden rounded-xl border-4 border-info/30 shadow-2xl sm:scale-75"
+																	>
+																		<img
+																			src={currentExercise.imageUrl}
+																			alt={currentExercise.title}
+																			class="h-20 w-28 object-cover sm:h-24 sm:w-32"
+																			style={currentExercise.crop
+																				? `object-position: ${currentExercise.crop.x}% ${currentExercise.crop.y}%; object-fit: cover;`
+																				: 'object-fit: cover;'}
+																		/>
+																	</div>
+																	<div
+																		class="mt-2 text-base font-bold text-base-content drop-shadow-lg sm:mt-3 sm:text-lg"
+																	>
+																		{currentExercise.title}
+																	</div>
+																</div>
+															{/if}
+
+															<!-- Arrow -->
+															<div class="text-4xl text-info sm:text-6xl">➡️</div>
+
+															<!-- Next exercise -->
+															{#if nextExercise?.imageUrl}
+																<div class="text-center">
+																	<div
+																		class="mb-2 badge badge-xs font-semibold tracking-wide text-neutral-content uppercase badge-neutral sm:mb-3 sm:badge-sm"
+																	>
+																		Next
+																	</div>
+																	<div
+																		class="inline-block scale-75 overflow-hidden rounded-xl border-4 border-white/20 shadow-2xl sm:scale-75"
+																	>
+																		<img
+																			src={nextExercise.imageUrl}
+																			alt={nextExercise.title}
+																			class="h-20 w-28 object-cover sm:h-24 sm:w-32"
+																			style={nextExercise.crop
+																				? `object-position: ${nextExercise.crop.x}% ${nextExercise.crop.y}%; object-fit: cover;`
+																				: 'object-fit: cover;'}
+																		/>
+																	</div>
+																	<div
+																		class="mt-2 text-base font-bold text-base-content drop-shadow-lg sm:mt-3 sm:text-lg"
+																	>
+																		{nextExercise.title}
+																	</div>
+																</div>
+															{/if}
+														</div>
+													{/if}
+												</div>
+											{/if}
+
+											<!-- Exercise Info - Top Left -->
+											{#if !(currentStep.type === 'exercise' && (currentSetInfo.isResting || currentSetInfo.isTransitioning))}
+												<div
+													class="absolute top-2 left-2 z-50 rounded-xl border border-white/20 bg-black/80 px-3 py-2 shadow-xl backdrop-blur-md sm:top-4 sm:left-4 sm:rounded-2xl sm:px-6 sm:py-4"
+												>
+													<div class="text-sm font-bold text-white drop-shadow-lg sm:text-lg">
+														{currentStep.label}
+													</div>
+													{#if currentStep.type === 'exercise'}
+														{#if currentStep.exercises.length === 1}
+															<div class="mt-1 text-xs text-white/80 sm:text-sm">
+																{#if currentStep.reps > 1}{currentStep.reps} reps{/if}
+															</div>
+														{/if}
+														{#if currentStep.exercises && currentStep.exercises.length > 1}
+															<div class="mt-2 space-y-1">
+																{#each currentStep.exercises as exercise, index}
+																	{@const isCurrentExercise =
+																		index === (currentSetInfo.currentExerciseIndex || 0)}
+																	<div
+																		class="flex items-center gap-2 text-xs {isCurrentExercise
+																			? 'font-semibold text-white'
+																			: 'text-white/70'}"
+																	>
+																		<span class="w-4 text-center font-mono">{index + 1}.</span>
+																		<span>{exercise.title}</span>
+																		{#if exercise.reps > 1}
+																			<span class="text-white/70">({exercise.reps} reps)</span>
+																		{/if}
+																		{#if isCurrentExercise}
+																			<span class="badge badge-xs badge-primary">Current</span>
+																		{/if}
+																	</div>
+																{/each}
+															</div>
+														{/if}
+													{/if}
+												</div>
+											{/if}
+
+											<!-- Countdown Timer - Always Visible (except during rest and transition) -->
+											{#if !(currentStep.type === 'exercise' && (currentSetInfo.isResting || currentSetInfo.isTransitioning))}
+												<div
+													class="absolute top-2 right-2 z-50 rounded-xl border border-white/20 bg-black/80 px-3 py-2 shadow-xl backdrop-blur-md sm:top-4 sm:right-4 sm:rounded-2xl sm:px-6 sm:py-4"
+												>
+													<div
+														class="mb-1 text-xs font-medium tracking-wide text-white/80 uppercase sm:mb-2 sm:text-sm"
+													>
+														{#if currentStep.type === 'exercise'}
+															{#if currentSetInfo.isResting}
+																<span class="badge badge-xs badge-warning sm:badge-sm">Rest</span>
+															{:else if currentSetInfo.isTransitioning}
+																<span class="badge badge-xs badge-info sm:badge-sm">Switch</span>
+															{:else}
+																<span class="badge badge-xs badge-success sm:badge-sm"
+																	>Set {currentSetInfo.currentSet}/{currentSetInfo.totalSets}</span
+																>
+															{/if}
+														{:else}
+															<span class="badge badge-xs badge-info sm:badge-sm"
+																>{currentStep.label}</span
+															>
+														{/if}
+													</div>
+													<div
+														class="font-mono text-xl font-black text-white drop-shadow-lg sm:text-3xl"
+													>
+														{formatTime(Math.floor(currentSetInfo.timeLeftInPhase))}
+													</div>
+												</div>
+											{/if}
+
+											<!-- YouTube-style Controls Overlay -->
+											<div
+												class="absolute inset-0 z-60 bg-gradient-to-t from-black/80 via-transparent to-transparent transition-opacity duration-300 {shouldShowControls
+													? 'pointer-events-auto opacity-100'
+													: 'pointer-events-none opacity-0'}"
+											>
+												<!-- Bottom Controls Bar -->
+												<div class="absolute right-0 bottom-0 left-0">
+													<!-- Bottom controls row -->
+													<div class="bg-gradient-to-t from-black/90 to-transparent p-2 sm:p-4">
+														<!-- Timeline -->
+														<Timeline
+															{currentTime}
+															{totalDuration}
+															onSeek={seekTo}
+															visible={shouldShowControls}
+														/>
+
+														{#if shouldShowControls}
+															<!-- YouTube-style Controls -->
+															<div class="flex items-center justify-between">
+																<!-- Left controls -->
+																<div class="flex items-center gap-2 sm:gap-3">
+																	<!-- Play/Pause button -->
+																	<button
+																		class="btn btn-circle border-none bg-white/10 text-white btn-sm hover:bg-white/20 sm:btn-md"
+																		onclick={isPlaying ? pauseTimer : startTimer}
+																		aria-label={isPlaying ? 'Pause' : 'Play'}
+																	>
+																		{#if isPlaying}
+																			<!-- Pause icon -->
+																			<svg
+																				xmlns="http://www.w3.org/2000/svg"
+																				class="h-4 w-4 sm:h-5 sm:w-5"
+																				fill="currentColor"
+																				viewBox="0 0 24 24"
+																			>
+																				<path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
+																			</svg>
+																		{:else}
+																			<!-- Play icon -->
+																			<svg
+																				xmlns="http://www.w3.org/2000/svg"
+																				class="h-4 w-4 sm:h-5 sm:w-5"
+																				fill="currentColor"
+																				viewBox="0 0 24 24"
+																			>
+																				<path d="M8 5v14l11-7z" />
+																			</svg>
+																		{/if}
+																	</button>
+
+																	<!-- Sound control (mute/unmute) -->
+																	<button
+																		class="btn btn-circle border-none bg-transparent text-white btn-sm hover:bg-white/20 sm:btn-md"
+																		aria-label="Mute/Unmute"
+																	>
+																		<!-- Volume icon -->
+																		<svg
+																			xmlns="http://www.w3.org/2000/svg"
+																			class="h-4 w-4 sm:h-5 sm:w-5"
+																			fill="currentColor"
+																			viewBox="0 0 24 24"
+																		>
+																			<path
+																				d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"
+																			/>
+																		</svg>
+																	</button>
+
+																	<!-- Time display -->
+																	<div class="font-mono text-xs text-white/80 sm:text-sm">
+																		{formatTime(currentTime)} / {formatTime(totalDuration)}
+																	</div>
+																</div>
+
+																<!-- Right controls -->
+																<div class="flex items-center gap-2 sm:gap-3">
+																	<!-- Fullscreen button -->
+																	<button
+																		class="btn btn-circle border-none bg-white/10 text-white btn-sm hover:bg-white/20 sm:btn-md"
+																		onclick={toggleFullscreen}
+																		aria-label={isFullscreen
+																			? 'Exit fullscreen'
+																			: 'Enter fullscreen'}
+																	>
+																		{#if isFullscreen}
+																			<!-- Exit fullscreen icon -->
+																			<svg
+																				xmlns="http://www.w3.org/2000/svg"
+																				class="h-4 w-4 sm:h-5 sm:w-5"
+																				fill="currentColor"
+																				viewBox="0 0 24 24"
+																			>
+																				<path
+																					d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"
+																				/>
+																			</svg>
+																		{:else}
+																			<!-- Enter fullscreen icon -->
+																			<svg
+																				xmlns="http://www.w3.org/2000/svg"
+																				class="h-4 w-4 sm:h-5 sm:w-5"
+																				fill="currentColor"
+																				viewBox="0 0 24 24"
+																			>
+																				<path
+																					d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"
+																				/>
+																			</svg>
+																		{/if}
+																	</button>
+
+																	<!-- Exercise info -->
+																	<div class="text-right">
+																		<div class="text-xs font-bold text-white sm:text-sm">
+																			{currentStep.label}
+																		</div>
+																		{#if currentStep.type === 'exercise'}
+																			<div class="text-xs text-white/60">
+																				{#if currentStep.exercises && currentStep.exercises.length > 1}
+																					{#if currentSetInfo.isTransitioning}
+																						Switching exercises
+																					{:else}
+																						{(currentSetInfo.currentExerciseIndex || 0) + 1} of {currentStep
+																							.exercises.length} × {currentStep.sets} sets
+																					{/if}
+																				{:else}
+																					{#if currentStep.reps > 1}{currentStep.reps} reps ×
+																					{/if}{currentStep.sets} sets
+																				{/if}
+																			</div>
+																		{/if}
+																	</div>
+																</div>
+															</div>
+														{/if}
+													</div>
 												</div>
 											</div>
-										{/if}
+										</div>
+									</div>
+								</div>
+							</div>
+						{/if}
+					</div>
+				</div>
 
-										<!-- YouTube-style Controls Overlay -->
-										<div
-											class="absolute inset-0 z-60 bg-gradient-to-t from-black/80 via-transparent to-transparent transition-opacity duration-300 {shouldShowControls
-												? 'pointer-events-auto opacity-100'
-												: 'pointer-events-none opacity-0'}"
+				<!-- Enhanced Sidebar - Right side on desktop -->
+				<div
+					class="flex max-h-screen min-h-0 w-full flex-col lg:max-h-full lg:w-80 lg:flex-shrink-0"
+				>
+					<!-- Up Next Section -->
+					<div
+						class="card flex min-h-0 flex-1 flex-col overflow-hidden border border-base-300 bg-base-100 shadow-lg"
+					>
+						<div class="card-body flex flex-1 flex-col p-0">
+							<div class="flex-1 space-y-2 overflow-y-auto p-2">
+								{#each steps as step, index}
+									{@const stepTime = stepsWithTimes.find((s) => s.id === step.id)}
+									{@const isCurrentStep = currentStep?.id === step.id}
+									{@const isPastStep = stepTime && currentTime > stepTime.end}
+									<div
+										class="compact card bg-base-100 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md
+									         {isCurrentStep ? 'bg-primary/5 ring-2 ring-primary ring-offset-2' : ''}
+									         {isPastStep ? 'opacity-75' : ''}"
+									>
+										<button
+											class="hover:bg-base-50 card-body w-full cursor-pointer p-3 text-left"
+											onclick={() => seekTo((stepTime?.start ?? 0) + 1)}
 										>
-											<!-- Bottom Controls Bar -->
-											<div class="absolute right-0 bottom-0 left-0">
-												<!-- Bottom controls row -->
-												<div class="bg-gradient-to-t from-black/90 to-transparent p-2 sm:p-4">
-													<!-- Timeline -->
-													<Timeline
-														{currentTime}
-														{totalDuration}
-														onSeek={seekTo}
-														visible={shouldShowControls}
-													/>
+											<div class="flex items-start gap-3">
+												<!-- Enhanced Thumbnail -->
+												<div class="avatar">
+													<div
+														class="relative flex h-12 w-16 items-center justify-center overflow-hidden rounded-lg bg-base-300"
+													>
+														{#if step.content?.imageUrl}
+															<img
+																src={step.content.imageUrl}
+																alt={step.label}
+																class="h-full w-full object-cover"
+																style={step.content.crop
+																	? `object-position: ${step.content.crop.x}% ${step.content.crop.y}%; object-fit: cover;`
+																	: 'object-fit: cover;'}
+																loading="lazy"
+															/>
+														{:else}
+															<span class="text-lg">
+																{#if step.type === 'exercise'}💪{:else}⏱️{/if}
+															</span>
+														{/if}
 
-													{#if shouldShowControls}
-														<!-- YouTube-style Controls -->
-														<div class="flex items-center justify-between">
-															<!-- Left controls -->
-															<div class="flex items-center gap-2 sm:gap-3">
-																<!-- Play/Pause button -->
-																<button
-																	class="btn btn-circle border-none bg-white/10 text-white btn-sm hover:bg-white/20 sm:btn-md"
-																	onclick={isPlaying ? pauseTimer : startTimer}
-																	aria-label={isPlaying ? 'Pause' : 'Play'}
-																>
-																	{#if isPlaying}
-																		<!-- Pause icon -->
-																		<svg
-																			xmlns="http://www.w3.org/2000/svg"
-																			class="h-4 w-4 sm:h-5 sm:w-5"
-																			fill="currentColor"
-																			viewBox="0 0 24 24"
-																		>
-																			<path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
-																		</svg>
-																	{:else}
-																		<!-- Play icon -->
-																		<svg
-																			xmlns="http://www.w3.org/2000/svg"
-																			class="h-4 w-4 sm:h-5 sm:w-5"
-																			fill="currentColor"
-																			viewBox="0 0 24 24"
-																		>
-																			<path d="M8 5v14l11-7z" />
-																		</svg>
-																	{/if}
-																</button>
-
-																<!-- Sound control (mute/unmute) -->
-																<button
-																	class="btn btn-circle border-none bg-transparent text-white btn-sm hover:bg-white/20 sm:btn-md"
-																	aria-label="Mute/Unmute"
-																>
-																	<!-- Volume icon -->
+														<!-- Status overlays -->
+														{#if isPastStep}
+															<div
+																class="absolute inset-0 flex items-center justify-center bg-black/50"
+															>
+																<div class="badge badge-sm badge-success">
 																	<svg
 																		xmlns="http://www.w3.org/2000/svg"
-																		class="h-4 w-4 sm:h-5 sm:w-5"
+																		class="h-3 w-3"
 																		fill="currentColor"
 																		viewBox="0 0 24 24"
 																	>
-																		<path
-																			d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"
-																		/>
+																		<path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
 																	</svg>
-																</button>
+																</div>
+															</div>
+														{:else if isCurrentStep}
+															<div
+																class="absolute inset-0 flex items-center justify-center bg-primary/30"
+															>
+																<div class="badge animate-pulse badge-sm badge-primary">
+																	<svg
+																		xmlns="http://www.w3.org/2000/svg"
+																		class="h-3 w-3"
+																		fill="currentColor"
+																		viewBox="0 0 24 24"
+																	>
+																		<path d="M8 5v14l11-7z" />
+																	</svg>
+																</div>
+															</div>
+														{/if}
 
-																<!-- Time display -->
+														<!-- Start time badge -->
+														<div
+															class="absolute right-1 bottom-1 badge badge-xs font-mono badge-neutral"
+														>
+															{Math.floor((stepTime?.start ?? 0) / 60)}:{String(
+																(stepTime?.start ?? 0) % 60
+															).padStart(2, '0')}
+														</div>
+													</div>
+												</div>
+
+												<!-- Enhanced Content -->
+												<div class="min-w-0 flex-1">
+													<div class="mb-1 flex items-start justify-between">
+														<h4
+															class="line-clamp-2 text-sm leading-tight font-semibold text-base-content {isPastStep
+																? 'line-through opacity-60'
+																: ''}"
+														>
+															{step.label}
+														</h4>
+														<div class="ml-2 badge flex-shrink-0 badge-outline badge-xs">
+															#{index + 1}
+														</div>
+													</div>
+
+													<div class="mb-2 flex flex-wrap items-center gap-1">
+														{#if step.type === 'exercise'}
+															<div class="badge badge-outline badge-xs">{step.sets} sets</div>
+															{#if step.exercises && step.exercises.length > 1}
+																<div class="badge badge-outline badge-xs">Superset</div>
+															{:else if step.reps > 1}
+																<div class="badge badge-outline badge-xs">{step.reps} reps</div>
+															{/if}
+														{/if}
+													</div>
+
+													{#if step.type === 'exercise' && step.exercises && step.exercises.length > 1}
+														<div class="mb-2 text-xs text-base-content/70">
+															{#each step.exercises as exercise, exerciseIndex}
+																<div class="flex items-center gap-1">
+																	<span class="font-mono text-xs">{exerciseIndex + 1}.</span>
+																	<span class="truncate">{exercise.title}</span>
+																	{#if exercise.reps > 1}
+																		<span class="text-base-content/50">({exercise.reps})</span>
+																	{/if}
+																</div>
+															{/each}
+														</div>
+													{/if}
+
+													<div class="flex items-center gap-1">
+														{#if isCurrentStep}
+															<div class="badge animate-pulse badge-xs badge-primary">
 																<div
-																	class="font-mono text-xs text-white/80 sm:text-sm"
-																>
-																	{formatTime(currentTime)} / {formatTime(totalDuration)}
-																</div>
+																	class="mr-1 h-1 w-1 animate-ping rounded-full bg-current"
+																></div>
+																Live
 															</div>
-
-															<!-- Right controls -->
-															<div class="flex items-center gap-2 sm:gap-3">
-																<!-- Fullscreen button -->
-																<button
-																	class="btn btn-circle border-none bg-white/10 text-white btn-sm hover:bg-white/20 sm:btn-md"
-																	onclick={toggleFullscreen}
-																	aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
-																>
-																	{#if isFullscreen}
-																		<!-- Exit fullscreen icon -->
-																		<svg
-																			xmlns="http://www.w3.org/2000/svg"
-																			class="h-4 w-4 sm:h-5 sm:w-5"
-																			fill="currentColor"
-																			viewBox="0 0 24 24"
-																		>
-																			<path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/>
-																		</svg>
-																	{:else}
-																		<!-- Enter fullscreen icon -->
-																		<svg
-																			xmlns="http://www.w3.org/2000/svg"
-																			class="h-4 w-4 sm:h-5 sm:w-5"
-																			fill="currentColor"
-																			viewBox="0 0 24 24"
-																		>
-																			<path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
-																		</svg>
-																	{/if}
-																</button>
-
-																<!-- Exercise info -->
-																<div class="text-right">
-																	<div class="text-xs font-bold text-white sm:text-sm">
-																		{currentStep.label}
-																	</div>
-																	{#if currentStep.type === 'exercise'}
-																		<div class="text-xs text-white/60">
-																			{#if currentStep.reps > 1}{currentStep.reps} reps × {/if}{currentStep.sets} sets
-																		</div>
-																	{/if}
-																</div>
-															</div>
-														</div>
-													{/if}
+														{:else if isPastStep}
+															<div class="badge badge-xs badge-success">Completed</div>
+														{:else}
+															<div class="badge badge-ghost badge-xs">Pending</div>
+														{/if}
+													</div>
 												</div>
 											</div>
-										</div>
+										</button>
 									</div>
-								</div>
+								{/each}
 							</div>
-						</div>
-					{/if}
-				</div>
-			</div>
-
-			<!-- Enhanced Sidebar - Right side on desktop -->
-			<div class="flex max-h-screen min-h-0 w-full flex-col lg:max-h-full lg:w-80 lg:flex-shrink-0">
-				<!-- Up Next Section -->
-				<div
-					class="card flex min-h-0 flex-1 flex-col overflow-hidden border border-base-300 bg-base-100 shadow-lg"
-				>
-					<div class="card-body flex flex-1 flex-col p-0">
-						<div class="flex-1 space-y-2 overflow-y-auto p-2">
-							{#each steps as step, index}
-								{@const stepTime = stepsWithTimes.find((s) => s.id === step.id)}
-								{@const isCurrentStep = currentStep?.id === step.id}
-								{@const isPastStep = stepTime && currentTime > stepTime.end}
-								<div
-									class="compact card bg-base-100 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md
-									         {isCurrentStep ? 'bg-primary/5 ring-2 ring-primary ring-offset-2' : ''}
-									         {isPastStep ? 'opacity-75' : ''}"
-								>
-									<button
-										class="hover:bg-base-50 card-body w-full cursor-pointer p-3 text-left"
-										onclick={() => seekTo((stepTime?.start ?? 0) + 1)}
-									>
-										<div class="flex items-start gap-3">
-											<!-- Enhanced Thumbnail -->
-											<div class="avatar">
-												<div
-													class="relative flex h-12 w-16 items-center justify-center overflow-hidden rounded-lg bg-base-300"
-												>
-													{#if step.content?.imageUrl}
-														<img
-															src={step.content.imageUrl}
-															alt={step.label}
-															class="h-full w-full object-cover"
-															style={step.content.crop
-																? `object-position: ${step.content.crop.x}% ${step.content.crop.y}%; object-fit: cover;`
-																: 'object-fit: cover;'}
-															loading="lazy"
-														/>
-													{:else}
-														<span class="text-lg">
-															{#if step.type === 'exercise'}💪{:else}⏱️{/if}
-														</span>
-													{/if}
-
-													<!-- Status overlays -->
-													{#if isPastStep}
-														<div
-															class="absolute inset-0 flex items-center justify-center bg-black/50"
-														>
-															<div class="badge badge-sm badge-success">
-																<svg
-																	xmlns="http://www.w3.org/2000/svg"
-																	class="h-3 w-3"
-																	fill="currentColor"
-																	viewBox="0 0 24 24"
-																>
-																	<path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
-																</svg>
-															</div>
-														</div>
-													{:else if isCurrentStep}
-														<div
-															class="absolute inset-0 flex items-center justify-center bg-primary/30"
-														>
-															<div class="badge animate-pulse badge-sm badge-primary">
-																<svg
-																	xmlns="http://www.w3.org/2000/svg"
-																	class="h-3 w-3"
-																	fill="currentColor"
-																	viewBox="0 0 24 24"
-																>
-																	<path d="M8 5v14l11-7z" />
-																</svg>
-															</div>
-														</div>
-													{/if}
-
-													<!-- Start time badge -->
-													<div
-														class="absolute right-1 bottom-1 badge badge-xs font-mono badge-neutral"
-													>
-														{Math.floor((stepTime?.start ?? 0) / 60)}:{String(
-															(stepTime?.start ?? 0) % 60
-														).padStart(2, '0')}
-													</div>
-												</div>
-											</div>
-
-											<!-- Enhanced Content -->
-											<div class="min-w-0 flex-1">
-												<div class="mb-1 flex items-start justify-between">
-													<h4
-														class="line-clamp-2 text-sm leading-tight font-semibold text-base-content {isPastStep
-															? 'line-through opacity-60'
-															: ''}"
-													>
-														{step.label}
-													</h4>
-													<div class="ml-2 badge flex-shrink-0 badge-outline badge-xs">
-														#{index + 1}
-													</div>
-												</div>
-
-												<div class="mb-2 flex flex-wrap items-center gap-1">
-													{#if step.type === 'exercise'}
-														<div class="badge badge-outline badge-xs">{step.sets} sets</div>
-														{#if step.reps > 1}<div class="badge badge-outline badge-xs">{step.reps} reps</div>{/if}
-													{/if}
-												</div>
-
-												<div class="flex items-center gap-1">
-													{#if isCurrentStep}
-														<div class="badge animate-pulse badge-xs badge-primary">
-															<div class="mr-1 h-1 w-1 animate-ping rounded-full bg-current"></div>
-															Live
-														</div>
-													{:else if isPastStep}
-														<div class="badge badge-xs badge-success">Completed</div>
-													{:else}
-														<div class="badge badge-ghost badge-xs">Pending</div>
-													{/if}
-												</div>
-											</div>
-										</div>
-									</button>
-								</div>
-							{/each}
 						</div>
 					</div>
 				</div>
 			</div>
 		</div>
 	</div>
-</div>
 {/if}
 
 <style>
@@ -913,5 +1330,22 @@
 		50% {
 			transform: scale(1.05);
 		}
+	}
+
+	/* Transition phase animations */
+	@keyframes transitionPulse {
+		0%,
+		100% {
+			transform: scale(1);
+			opacity: 1;
+		}
+		50% {
+			transform: scale(1.02);
+			opacity: 0.9;
+		}
+	}
+
+	.transition-overlay {
+		/* Animation removed */
 	}
 </style>

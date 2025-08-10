@@ -7,11 +7,11 @@
 </script>
 
 <svelte:head>
-	<title>{workout?.name || 'Loading...'}</title>
+	<title>{workout?.title || 'Loading...'}</title>
 </svelte:head>
 
 {#if workout}
-	<WorkoutSession workout={workout} sessionName={workout.name} />
+	<WorkoutSession workout={workout} />
 {:else}
 	<div class="flex items-center justify-center min-h-screen">
 		<div class="text-center">
