@@ -42,7 +42,7 @@
 
 	function handleTimelineMouseMove(e: MouseEvent) {
 		if (!isTimelineHovered) return;
-		
+
 		const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
 		const mouseX = e.clientX - rect.left;
 		const progress = Math.max(0, Math.min(1, mouseX / rect.width));
@@ -79,7 +79,7 @@
 	function handleTimelineTouchMove(e: TouchEvent) {
 		if (!isTouching) return;
 		e.preventDefault();
-		
+
 		const touch = e.touches[0];
 		const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
 		const touchX = touch.clientX - rect.left;
@@ -104,8 +104,8 @@
 
 {#if visible}
 	<div class="mb-3">
-		<div 
-			class="timeline-container relative h-0.5 overflow-hidden rounded-full bg-white/10 sm:h-1 cursor-pointer group"
+		<div
+			class="timeline-container group relative h-0.5 cursor-pointer overflow-hidden rounded-full bg-white/10 sm:h-1"
 			role="button"
 			tabindex="0"
 			aria-label="Timeline scrubber - click to seek"
@@ -123,25 +123,25 @@
 				class="h-full rounded-full bg-white/40 transition-all duration-300 ease-out"
 				style="width: {currentProgress * 100}%"
 			></div>
-			
+
 			<!-- Scrubber handle -->
 			<div
-				class="timeline-scrubber absolute top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/80 border border-white/30 shadow-md transition-opacity duration-200 group-hover:opacity-100 sm:h-3 sm:w-3 sm:border-2"
+				class="timeline-scrubber absolute top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/30 bg-white/80 shadow-md transition-opacity duration-200 group-hover:opacity-100 sm:h-3 sm:w-3 sm:border-2"
 				class:opacity-100={isTimelineHovered}
 				class:opacity-0={!isTimelineHovered}
 				style="left: {currentProgress * 100}%"
 			></div>
-			
+
 			<!-- Hover preview scrubber -->
 			{#if isTimelineHovered && hoverProgress !== null}
 				<div
-					class="absolute top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/50 border border-white/20 shadow-md sm:h-3 sm:w-3 sm:border-2"
+					class="absolute top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-white/50 shadow-md sm:h-3 sm:w-3 sm:border-2"
 					style="left: {hoverProgress * 100}%"
 				></div>
-				
+
 				<!-- Hover time tooltip -->
 				<div
-					class="absolute bottom-full mb-2 px-2 py-1 bg-black/80 text-white text-xs rounded backdrop-blur-sm pointer-events-none"
+					class="pointer-events-none absolute bottom-full mb-2 rounded bg-black/80 px-2 py-1 text-xs text-white backdrop-blur-sm"
 					style="left: {hoverProgress * 100}%; transform: translateX(-50%)"
 				>
 					{formatTime(hoverProgress * totalDuration)}

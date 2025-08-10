@@ -1,11 +1,10 @@
 <script lang="ts">
 	import { db } from '$lib/data/workouts.js';
+	import { calculateWorkoutDuration } from '$lib/utils/duration';
 
 	function getDuration(workout: any): string {
-		// Calculate total duration based on exerciceLoops
-		const totalDuration = workout.exerciceLoops.reduce((sum: number, loop: any) => {
-			return sum + (loop.sets * 60) + (loop.rest * (loop.sets - 1)); // Assuming 60 seconds per set
-		}, 0);
+		// Calculate total duration using the shared utility function
+		const totalDuration = calculateWorkoutDuration(workout.exerciceLoops);
 		return `${Math.ceil(totalDuration / 60)} min`;
 	}
 
@@ -17,7 +16,7 @@
 		// Get the first exercise from the first loop to display as workout image
 		if (workout.exerciceLoops.length > 0 && workout.exerciceLoops[0].exercices.length > 0) {
 			const firstExerciseId = workout.exerciceLoops[0].exercices[0].id;
-			const exercise = db.exercices.find(ex => ex.id === firstExerciseId);
+			const exercise = db.exercices.find((ex) => ex.id === firstExerciseId);
 			return exercise?.images[0]?.url || 'https://via.placeholder.com/400x200?text=Workout';
 		}
 		return 'https://via.placeholder.com/400x200?text=Workout';
@@ -34,31 +33,34 @@
 </svelte:head>
 
 <!-- All Workouts Section -->
-<section class="py-12 bg-base-50">
-	<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-		<div class="flex items-center justify-between mb-8">
+<section class="bg-base-50 py-12">
+	<div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+		<div class="mb-8 flex items-center justify-between">
 			<h2 class="text-2xl font-bold text-base-content">Workouts</h2>
 		</div>
-		
-		<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+		<div class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
 			{#each db.workouts as workout, index}
-				<a href="/workout/{getWorkoutSlug(workout)}" class="block bg-base-100 rounded-lg shadow-sm hover:shadow-md border border-base-300 overflow-hidden hover:scale-[1.02] transition-all duration-200">
+				<a
+					href="/workout/{getWorkoutSlug(workout)}"
+					class="block overflow-hidden rounded-lg border border-base-300 bg-base-100 shadow-sm transition-all duration-200 hover:scale-[1.02] hover:shadow-md"
+				>
 					<!-- Workout Image -->
-					<figure class="relative overflow-hidden h-48">
-						<img 
-							src={getWorkoutImage(workout)} 
+					<figure class="relative h-48 overflow-hidden">
+						<img
+							src={getWorkoutImage(workout)}
 							alt={workout.title}
-							class="w-full h-full object-cover"
+							class="h-full w-full object-cover"
 						/>
 					</figure>
-					
+
 					<!-- Workout Content -->
 					<div class="p-6">
-						<h3 class="text-lg font-semibold text-base-content mb-2">{workout.title}</h3>
-						<p class="text-base-content/70 text-sm mb-4 line-clamp-2">{workout.description}</p>
-						
+						<h3 class="mb-2 text-lg font-semibold text-base-content">{workout.title}</h3>
+						<p class="mb-4 line-clamp-2 text-sm text-base-content/70">{workout.description}</p>
+
 						<!-- Stats -->
-						<div class="flex items-center gap-4 mb-4 text-xs text-base-content/50">
+						<div class="mb-4 flex items-center gap-4 text-xs text-base-content/50">
 							<span class="flex items-center gap-1">
 								💪 {getExerciseCount(workout)} exercises
 							</span>
@@ -66,9 +68,9 @@
 								⏱️ {getDuration(workout)}
 							</span>
 						</div>
-						
+
 						<!-- CTA -->
-						<div class="btn btn-primary w-full text-center text-sm cursor-pointer">
+						<div class="btn w-full cursor-pointer text-center text-sm btn-primary">
 							Start Workout
 						</div>
 					</div>
@@ -79,11 +81,11 @@
 </section>
 
 <!-- Recent Activity Section (placeholder for future features) -->
-<section class="py-12 bg-base-100">
-	<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-		<h2 class="text-2xl font-bold text-base-content mb-6">Recent Activity</h2>
-		<div class="bg-base-200 rounded-lg p-8 text-center border border-base-300">
-			<span class="text-4xl mb-4 block">📊</span>
+<section class="bg-base-100 py-12">
+	<div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+		<h2 class="mb-6 text-2xl font-bold text-base-content">Recent Activity</h2>
+		<div class="rounded-lg border border-base-300 bg-base-200 p-8 text-center">
+			<span class="mb-4 block text-4xl">📊</span>
 			<p class="text-base-content/70">Track your progress and view workout history here</p>
 		</div>
 	</div>

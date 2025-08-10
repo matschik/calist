@@ -3,13 +3,13 @@ import type { PageLoad } from './$types';
 import { getWorkoutBySlug } from '$lib/data/workouts';
 
 export const load = (async ({ params }) => {
-    const workout = getWorkoutBySlug(params.workoutSlug);
+	const workout = getWorkoutBySlug(params.workoutSlug);
 
-    if (!workout) {
-        throw error(404, 'Workout not found');
-    }
+	if (!workout) {
+		throw error(404, 'Workout not found');
+	}
 
-    return {
-        workout
-    };
+	return {
+		workout
+	};
 }) satisfies PageLoad;

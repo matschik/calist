@@ -4,13 +4,20 @@
 	import ImageGif from '$lib/ImageGif.svelte';
 	import type { Workout, ExerciseLoop } from '$lib/data/workouts';
 	import { getExerciseById } from '$lib/data/workouts';
+	import { calculateExerciseDuration } from '$lib/utils/duration';
 
 	interface Props {
-		workout: Workout;
+		workout: Workout | undefined;
 	}
 
 	let { workout }: Props = $props();
-	let exerciceLoops = $derived(workout.exerciceLoops);
+
+	// Type guard to check if workout is properly loaded
+	function isWorkoutLoaded(workout: Workout | undefined): workout is Workout {
+		return workout !== undefined && workout.exerciceLoops !== undefined;
+	}
+
+	let exerciceLoops = $derived(workout?.exerciceLoops || []);
 
 	let currentTime = $state(0);
 	let interval: number | undefined = $state(undefined);
@@ -50,6 +57,11 @@
 
 	// Convert exerciceLoops to a flat array of steps for the timeline
 	function createSteps() {
+		// If no workout or exerciceLoops, return empty array
+		if (!isWorkoutLoaded(workout) || !exerciceLoops || exerciceLoops.length === 0) {
+			return [];
+		}
+
 		const flatSteps: Array<{
 			id: number;
 			type: 'exercise' | 'rest';
@@ -135,13 +147,19 @@
 			}
 
 			if (exercises.length > 0) {
-				// Create a single step for the exercise loop (whether single exercise or superset)
+				// Calculate duration based on reps and tempo for the first exercise
 				const firstExercise = exercises[0];
+				const exerciseDuration = calculateExerciseDuration(
+					firstExercise.reps,
+					loop.exercices[0].tempo
+				);
+
+				// Create a single step for the exercise loop (whether single exercise or superset)
 				flatSteps.push({
 					id: stepId++,
 					type: 'exercise',
 					label: combinedLabel,
-					duration: 60, // Default duration per exercise
+					duration: exerciseDuration, // Use calculated duration instead of hardcoded 60
 					sets: loop.sets,
 					reps: exercises[0].reps, // Use first exercise reps for display
 					rest: loop.rest,
@@ -465,7 +483,7 @@
 											<h1
 												class="mb-1 text-2xl font-black text-white drop-shadow-2xl sm:mb-2 sm:text-4xl"
 											>
-												{workout.title} Workout
+												{workout?.title || 'Workout'} Workout
 											</h1>
 											<p class="text-lg font-medium text-white/90 sm:text-xl">
 												Get ready for an amazing workout session
@@ -559,7 +577,7 @@
 												Great Job!
 											</h2>
 											<p class="text-lg font-medium text-white/90 sm:text-xl">
-												You've completed the "{workout.title}" workout
+												You've completed the "{workout?.title || 'Workout'}" workout
 											</p>
 										</div>
 
@@ -608,7 +626,10 @@
 												class="btn border-white/30 bg-white/20 text-white backdrop-blur-sm btn-md hover:bg-white/30 sm:btn-lg"
 												onclick={resetTimer}
 											>
-												<span class="iconify ph--arrow-clockwise size-4 sm:size-5" aria-hidden="true"></span>
+												<span
+													class="iconify size-4 ph--arrow-clockwise sm:size-5"
+													aria-hidden="true"
+												></span>
 												<span class="hidden sm:inline">Restart Workout</span>
 												<span class="sm:hidden">Restart</span>
 											</button>
@@ -987,13 +1008,19 @@
 																		onclick={isPlaying ? pauseTimer : startTimer}
 																		aria-label={isPlaying ? 'Pause' : 'Play'}
 																	>
-																																			{#if isPlaying}
-																		<!-- Pause icon -->
-																		<span class="iconify ph--pause size-4 sm:size-5" aria-hidden="true"></span>
-																	{:else}
-																		<!-- Play icon -->
-																		<span class="iconify ph--play size-4 sm:size-5" aria-hidden="true"></span>
-																	{/if}
+																		{#if isPlaying}
+																			<!-- Pause icon -->
+																			<span
+																				class="iconify size-4 ph--pause sm:size-5"
+																				aria-hidden="true"
+																			></span>
+																		{:else}
+																			<!-- Play icon -->
+																			<span
+																				class="iconify size-4 ph--play sm:size-5"
+																				aria-hidden="true"
+																			></span>
+																		{/if}
 																	</button>
 
 																	<!-- Sound control (mute/unmute) -->
@@ -1002,7 +1029,10 @@
 																		aria-label="Mute/Unmute"
 																	>
 																		<!-- Volume icon -->
-																		<span class="iconify ph--speaker-high size-4 sm:size-5" aria-hidden="true"></span>
+																		<span
+																			class="iconify size-4 ph--speaker-high sm:size-5"
+																			aria-hidden="true"
+																		></span>
 																	</button>
 
 																	<!-- Time display -->
@@ -1021,13 +1051,19 @@
 																			? 'Exit fullscreen'
 																			: 'Enter fullscreen'}
 																	>
-																																			{#if isFullscreen}
-																		<!-- Exit fullscreen icon -->
-																		<span class="iconify ph--arrows-out-simple size-4 sm:size-5" aria-hidden="true"></span>
-																	{:else}
-																		<!-- Enter fullscreen icon -->
-																		<span class="iconify ph--arrows-in-simple size-4 sm:size-5" aria-hidden="true"></span>
-																	{/if}
+																		{#if isFullscreen}
+																			<!-- Exit fullscreen icon -->
+																			<span
+																				class="iconify size-4 ph--arrows-out-simple sm:size-5"
+																				aria-hidden="true"
+																			></span>
+																		{:else}
+																			<!-- Enter fullscreen icon -->
+																			<span
+																				class="iconify size-4 ph--arrows-in-simple sm:size-5"
+																				aria-hidden="true"
+																			></span>
+																		{/if}
 																	</button>
 																</div>
 															</div>
@@ -1094,7 +1130,7 @@
 																class="absolute inset-0 flex items-center justify-center bg-black/50"
 															>
 																<div class="badge badge-sm badge-success">
-																	<span class="iconify ph--check size-3" aria-hidden="true"></span>
+																	<span class="iconify size-3 ph--check" aria-hidden="true"></span>
 																</div>
 															</div>
 														{:else if isCurrentStep}
@@ -1102,7 +1138,7 @@
 																class="absolute inset-0 flex items-center justify-center bg-primary/30"
 															>
 																<div class="badge animate-pulse badge-sm badge-primary">
-																	<span class="iconify ph--play size-3" aria-hidden="true"></span>
+																	<span class="iconify size-3 ph--play" aria-hidden="true"></span>
 																</div>
 															</div>
 														{/if}

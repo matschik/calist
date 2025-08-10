@@ -11,11 +11,11 @@
 </svelte:head>
 
 {#if workout}
-	<WorkoutSession workout={workout} />
+	<WorkoutSession {workout} />
 {:else}
-	<div class="flex items-center justify-center min-h-screen">
+	<div class="flex min-h-screen items-center justify-center">
 		<div class="text-center">
-			<div class="animate-spin rounded-full h-32 w-32 border-b-2 border-primary mx-auto mb-4"></div>
+			<div class="mx-auto mb-4 h-32 w-32 animate-spin rounded-full border-b-2 border-primary"></div>
 			<p class="text-lg text-base-content/70">Loading workout...</p>
 		</div>
 	</div>

@@ -2,7 +2,7 @@
 	let { suffix } = $props();
 </script>
 
-<div class="relative w-full pb-[56.25%] h-0 overflow-hidden">
+<div class="relative h-0 w-full overflow-hidden pb-[56.25%]">
 	<iframe
 		class="absolute top-0 left-0 size-full"
 		src="https://www.youtube-nocookie.com/embed/{suffix}"
