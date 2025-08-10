@@ -30,7 +30,7 @@ export const db = {
         {
             id: "888a4569-238e-403c-ae73-dbf862580d00",
             title: 'Deep Squats',
-            images: [{ url: 'https://cdn.jefit.com/assets/img/exercises/gifs/467.gif' }],
+            images: [{url: "https://evofitness.at/wp-content/uploads/2025/05/deep-squat.gif"}], //[{ url: 'https://cdn.jefit.com/assets/img/exercises/gifs/467.gif' }],
             description: 'Keep your back straight and your chest up. Lower your body slowly to the ground over 3-5 seconds. Reset to starting position.'
         },
         {

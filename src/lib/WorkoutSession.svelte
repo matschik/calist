@@ -205,6 +205,7 @@
 	let showControls = $state(false);
 	let controlsTimeout: number | null = null;
 	let isFullscreen = $state(false);
+	let videoContainer = $state<HTMLElement | undefined>(undefined);
 
 	// Show controls when paused
 	const shouldShowControls = $derived(showControls || !isPlaying);
@@ -236,8 +237,7 @@
 	function toggleFullscreen() {
 		if (!document.fullscreenElement) {
 			// Enter fullscreen
-			const videoContainer = document.querySelector('.video-container');
-			if (videoContainer && videoContainer.requestFullscreen) {
+			if (videoContainer?.requestFullscreen) {
 				videoContainer.requestFullscreen();
 				isFullscreen = true;
 			}
@@ -621,6 +621,7 @@
 								<div class="w-full overflow-hidden bg-base-100 transition-all duration-300">
 									<!-- YouTube-style Video Player Area with 16:9 Aspect Ratio -->
 									<div
+										bind:this={videoContainer}
 										class="video-container relative aspect-video w-full overflow-hidden bg-base-300"
 										role="button"
 										tabindex="0"
