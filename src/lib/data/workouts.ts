@@ -1,5 +1,5 @@
 export const db = {
-	exercices: [
+	exercises: [
 		{
 			id: 'a74909ff-b865-48f1-a82e-18211a788215',
 			title: 'Negative Push-ups',
@@ -74,9 +74,9 @@ export const db = {
 			tags: ['lvl 1'],
 			description: 'Master the fundamental pushing movement with progressive exercises',
 			benefits: ['Upper body strength', 'Core stability', 'Chest & triceps'],
-			exerciceLoops: [
+			exerciseLoops: [
 				{
-					exercices: [
+					exercises: [
 						{
 							id: 'a74909ff-b865-48f1-a82e-18211a788215',
 							reps: 8
@@ -86,7 +86,7 @@ export const db = {
 					rest: 120
 				},
 				{
-					exercices: [
+					exercises: [
 						{
 							id: 'd4f55277-e441-4266-9b1f-df8d26ab3d96',
 							reps: 8
@@ -96,7 +96,7 @@ export const db = {
 					rest: 120
 				},
 				{
-					exercices: [{ id: 'ab231895-b370-4bcc-a7ca-d58ec1608cf1' }],
+					exercises: [{ id: 'ab231895-b370-4bcc-a7ca-d58ec1608cf1', duration: 60 }],
 					sets: 4,
 					rest: 120
 				}
@@ -108,9 +108,9 @@ export const db = {
 			tags: ['lvl 1'],
 			description: 'Build pulling strength and work towards your first pull-up',
 			benefits: ['Back muscles', 'Lat development', 'Grip strength'],
-			exerciceLoops: [
+			exerciseLoops: [
 				{
-					exercices: [
+					exercises: [
 						{
 							id: 'e8f9a123-4567-89ab-cdef-0123456789ab',
 							reps: 15
@@ -130,9 +130,9 @@ export const db = {
 			tags: ['lvl 1'],
 			description: 'Perfect your squat form and build powerful legs',
 			benefits: ['Leg strength', 'Glute activation', 'Mobility'],
-			exerciceLoops: [
+			exerciseLoops: [
 				{
-					exercices: [
+					exercises: [
 						{
 							id: '888a4569-238e-403c-ae73-dbf862580d00',
 							reps: 12,
@@ -143,7 +143,7 @@ export const db = {
 					rest: 120
 				},
 				{
-					exercices: [
+					exercises: [
 						{
 							id: '384d6d6a-43b6-4b40-be7f-b3d34a720b9f',
 							reps: 12,
@@ -154,7 +154,7 @@ export const db = {
 					rest: 120
 				},
 				{
-					exercices: [
+					exercises: [
 						{
 							id: 'bc702648-afb7-44ac-a349-890c022e3dc',
 							reps: 15,
@@ -186,9 +186,10 @@ export interface Exercise {
 }
 
 export interface ExerciseLoop {
-	exercices: Array<{
+	exercises: Array<{
 		id: string;
 		reps?: number;
+		duration?: number; // Duration in seconds for time-based exercises
 		tempo?: string;
 	}>;
 	sets: number;
@@ -201,7 +202,7 @@ export interface Workout {
 	tags: string[];
 	description: string;
 	benefits: string[];
-	exerciceLoops: ExerciseLoop[];
+	exerciseLoops: ExerciseLoop[];
 }
 
 // Helper function to get workout by slug (using title as slug for now)
@@ -213,5 +214,5 @@ export function getWorkoutBySlug(slug: string): Workout | undefined {
 
 // Helper function to get exercise by id
 export function getExerciseById(id: string): Exercise | undefined {
-	return db.exercices.find((exercise) => exercise.id === id);
+	return db.exercises.find((exercise) => exercise.id === id);
 }

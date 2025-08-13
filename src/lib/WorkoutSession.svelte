@@ -14,10 +14,10 @@
 
 	// Type guard to check if workout is properly loaded
 	function isWorkoutLoaded(workout: Workout | undefined): workout is Workout {
-		return workout !== undefined && workout.exerciceLoops !== undefined;
+		return workout !== undefined && workout.exerciseLoops !== undefined;
 	}
 
-	let exerciceLoops = $derived(workout?.exerciceLoops || []);
+	let exerciseLoops = $derived(workout?.exerciseLoops || []);
 
 	let currentTime = $state(0);
 	let interval: number | undefined = $state(undefined);
@@ -25,7 +25,7 @@
 
 	function startTimer() {
 		if (!interval && currentTime < totalDuration) {
-			interval = setInterval(() => {
+			interval = window.setInterval(() => {
 				if (currentTime + 0.1 >= totalDuration) {
 					pauseTimer();
 					currentTime = totalDuration;
@@ -55,10 +55,10 @@
 		currentTime = time;
 	}
 
-	// Convert exerciceLoops to a flat array of steps for the timeline
+	// Convert exerciseLoops to a flat array of steps for the timeline
 	function createSteps() {
-		// If no workout or exerciceLoops, return empty array
-		if (!isWorkoutLoaded(workout) || !exerciceLoops || exerciceLoops.length === 0) {
+		// If no workout or exerciseLoops, return empty array
+		if (!isWorkoutLoaded(workout) || !exerciseLoops || exerciseLoops.length === 0) {
 			return [];
 		}
 
@@ -115,19 +115,20 @@
 			}
 		});
 
-		// Convert each exerciceLoop to a single step that contains all exercises
-		for (const loop of exerciceLoops) {
+		// Convert each exerciseLoop to a single step that contains all exercises
+		for (const loop of exerciseLoops) {
 			const exercises = [];
 			let combinedLabel = '';
 
 			// Collect all exercises in this loop
-			for (const exerciseRef of loop.exercices) {
+			for (const exerciseRef of loop.exercises) {
 				const exercise = getExerciseById(exerciseRef.id);
 				if (exercise) {
 					exercises.push({
 						id: exerciseRef.id,
 						title: exercise.title,
 						reps: exerciseRef.reps || 1,
+						duration: exerciseRef.duration, // Include duration for display purposes
 						imageUrl: exercise.images[0]?.url || '',
 						description: exercise.description,
 						crop: exercise.images[0]?.crop
@@ -147,12 +148,9 @@
 			}
 
 			if (exercises.length > 0) {
-				// Calculate duration based on reps and tempo for the first exercise
-				const firstExercise = exercises[0];
-				const exerciseDuration = calculateExerciseDuration(
-					firstExercise.reps,
-					loop.exercices[0].tempo
-				);
+				// Calculate duration based on the original exercise reference (which may have duration, reps, or both)
+				const firstExerciseRef = loop.exercises[0];
+				const exerciseDuration = calculateExerciseDuration(firstExerciseRef);
 
 				// Create a single step for the exercise loop (whether single exercise or superset)
 				flatSteps.push({
@@ -165,9 +163,9 @@
 					rest: loop.rest,
 					exercises: exercises,
 					content: {
-						imageUrl: firstExercise.imageUrl,
-						description: firstExercise.description,
-						crop: firstExercise.crop
+						imageUrl: exercises[0].imageUrl,
+						description: exercises[0].description,
+						crop: exercises[0].crop
 					}
 				});
 			}
@@ -231,7 +229,7 @@
 	function showControlsTemporarily() {
 		showControls = true;
 		if (controlsTimeout) clearTimeout(controlsTimeout);
-		controlsTimeout = setTimeout(() => {
+		controlsTimeout = window.setTimeout(() => {
 			showControls = false;
 		}, 3000); // Hide after 3 seconds like YouTube
 	}
@@ -243,7 +241,7 @@
 
 	function handleMouseLeave() {
 		if (controlsTimeout) clearTimeout(controlsTimeout);
-		controlsTimeout = setTimeout(() => {
+		controlsTimeout = window.setTimeout(() => {
 			showControls = false;
 		}, 1000);
 	}
@@ -752,7 +750,39 @@
 													</div>
 
 													<!-- Small image below with "up next" -->
-													{#if currentStep.type === 'exercise' && currentStep.exercises && currentStep.exercises.length > 1}
+													{#if currentStep.type === 'exercise' && currentSetInfo.currentSet === currentSetInfo.totalSets}
+														{@const currentStepIndex = steps.findIndex(step => step.id === currentStep?.id)}
+														{@const nextStep = currentStepIndex >= 0 && currentStepIndex < steps.length - 1 ? steps[currentStepIndex + 1] : null}
+														
+														{#if nextStep && nextStep.content?.imageUrl}
+															<!-- Show next exercise from next step -->
+															<div class="text-center">
+																<div
+																	class="mb-2 badge badge-xs font-semibold tracking-wide text-neutral-content uppercase badge-neutral sm:mb-3 sm:badge-sm"
+																>
+																	Next Exercise
+																</div>
+																<div
+																	class="inline-block scale-75 overflow-hidden rounded-xl border-4 border-white/20 shadow-2xl sm:scale-75"
+																>
+																	<img
+																		src={nextStep.content.imageUrl}
+																		alt={nextStep.label}
+																		class="h-20 w-28 object-cover sm:h-24 sm:w-32"
+																		style={nextStep.content.crop
+																			? `object-position: ${nextStep.content.crop.x}% ${nextStep.content.crop.y}%; object-fit: cover;`
+																			: 'object-fit: cover;'}
+																	/>
+																</div>
+																<div
+																	class="mt-2 text-base font-bold text-base-content drop-shadow-lg sm:mt-3 sm:text-lg"
+																>
+																	{nextStep.label}
+																</div>
+															</div>
+														{/if}
+													{:else if currentStep.type === 'exercise' && currentStep.exercises && currentStep.exercises.length > 1}
+														<!-- Show next exercise within current superset -->
 														{@const nextExerciseIndex =
 															(currentSetInfo.currentExerciseIndex || 0) + 1}
 														{@const nextExercise =
@@ -786,6 +816,7 @@
 															</div>
 														{/if}
 													{:else if currentStep.content?.imageUrl}
+														<!-- Show current exercise for single exercises -->
 														<div class="text-center">
 															<div
 																class="mb-2 badge badge-xs font-semibold tracking-wide text-neutral-content uppercase badge-neutral sm:mb-3 sm:badge-sm"
@@ -1276,9 +1307,5 @@
 			transform: scale(1.02);
 			opacity: 0.9;
 		}
-	}
-
-	.transition-overlay {
-		/* Animation removed */
 	}
 </style>

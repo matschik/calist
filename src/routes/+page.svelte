@@ -4,19 +4,19 @@
 
 	function getDuration(workout: any): string {
 		// Calculate total duration using the shared utility function
-		const totalDuration = calculateWorkoutDuration(workout.exerciceLoops);
+		const totalDuration = calculateWorkoutDuration(workout.exerciseLoops);
 		return `${Math.ceil(totalDuration / 60)} min`;
 	}
 
 	function getExerciseCount(workout: any): number {
-		return workout.exerciceLoops.length;
+		return workout.exerciseLoops.length;
 	}
 
 	function getWorkoutImage(workout: any): string {
 		// Get the first exercise from the first loop to display as workout image
-		if (workout.exerciceLoops.length > 0 && workout.exerciceLoops[0].exercices.length > 0) {
-			const firstExerciseId = workout.exerciceLoops[0].exercices[0].id;
-			const exercise = db.exercices.find((ex) => ex.id === firstExerciseId);
+		if (workout.exerciseLoops.length > 0 && workout.exerciseLoops[0].exercises.length > 0) {
+			const firstExerciseId = workout.exerciseLoops[0].exercises[0].id;
+			const exercise = db.exercises.find((ex) => ex.id === firstExerciseId);
 			return exercise?.images[0]?.url || 'https://via.placeholder.com/400x200?text=Workout';
 		}
 		return 'https://via.placeholder.com/400x200?text=Workout';
