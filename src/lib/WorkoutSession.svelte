@@ -74,6 +74,7 @@
 				id: string;
 				title: string;
 				reps: number;
+				duration?: number;
 				imageUrl: string;
 				description: string;
 				crop?: {
@@ -128,7 +129,7 @@
 						id: exerciseRef.id,
 						title: exercise.title,
 						reps: exerciseRef.reps || 1,
-						duration: exerciseRef.duration, // Include duration for display purposes
+						duration: calculateExerciseDuration(exerciseRef),
 						imageUrl: exercise.images[0]?.url || '',
 						description: exercise.description,
 						crop: exercise.images[0]?.crop
@@ -148,16 +149,15 @@
 			}
 
 			if (exercises.length > 0) {
-				// Calculate duration based on the original exercise reference (which may have duration, reps, or both)
-				const firstExerciseRef = loop.exercises[0];
-				const exerciseDuration = calculateExerciseDuration(firstExerciseRef);
+				// Representative duration for step; per-exercise durations live on exercises
+				const representativeDuration = calculateExerciseDuration(loop.exercises[0]);
 
 				// Create a single step for the exercise loop (whether single exercise or superset)
 				flatSteps.push({
 					id: stepId++,
 					type: 'exercise',
 					label: combinedLabel,
-					duration: exerciseDuration, // Use calculated duration instead of hardcoded 60
+					duration: representativeDuration,
 					sets: loop.sets,
 					reps: exercises[0].reps, // Use first exercise reps for display
 					rest: loop.rest,
@@ -176,18 +176,36 @@
 
 	const steps = $derived(createSteps());
 
+	// Compute per-step duration with context (e.g., trim final rest at workout end)
+	function getStepDurationAtIndex(index: number): number {
+		const step = steps?.[index];
+		if (!step) return 0;
+		let duration = computeStepDuration(step);
+
+		// If this is the last step and it's a single-exercise loop, remove final rest
+		const isLastStep = steps && index === steps.length - 1;
+		const isSingleExerciseLoop = step.type === 'exercise' && ((step.exercises?.length || 1) === 1);
+		if (isLastStep && isSingleExerciseLoop) {
+			duration = Math.max(0, duration - (step.rest || 0));
+		}
+
+		return duration;
+	}
+
 	const totalDuration = $derived(
-		steps?.reduce((acc, step) => acc + computeStepDuration(step), 0) || 0
+		steps?.reduce((acc, _step, index) => acc + getStepDurationAtIndex(index), 0) || 0
 	);
 
 	function computeStepDuration(step: any) {
 		if (step.type === 'exercise') {
 			const transitionDuration = 10; // 10 seconds to switch between exercises in superset
 			const totalExercises = step.exercises?.length || 1;
+			const exerciseDurations: number[] = (step.exercises || []).map((e: any) => e.duration || 0);
 
 			if (totalExercises > 1) {
-				// For supersets: exercise duration * number of exercises * sets + transition time between exercises (but not after the last exercise) + rest between sets
-				const totalExerciseTime = step.duration * totalExercises * step.sets;
+				// For supersets: sum per-exercise durations per set + transition time between exercises + rest between sets
+				const perSetExerciseTime = exerciseDurations.reduce((a, b) => a + b, 0);
+				const totalExerciseTime = perSetExerciseTime * step.sets;
 				const totalTransitionTime = transitionDuration * (totalExercises - 1) * step.sets; // Only between exercises, not after the last one
 				const totalRestTime = step.rest * (step.sets - 1);
 				return totalExerciseTime + totalTransitionTime + totalRestTime;
@@ -201,13 +219,11 @@
 	}
 
 	const stepsWithTimes = $derived(
-		steps?.map((step, index) => ({
-			id: step.id,
-			start: steps.slice(0, index).reduce((acc, step) => acc + computeStepDuration(step), 0),
-			end:
-				steps.slice(0, index).reduce((acc, step) => acc + computeStepDuration(step), 0) +
-				computeStepDuration(step)
-		})) || []
+		steps?.map((step, index) => {
+			const start = steps.slice(0, index).reduce((acc, _s, i) => acc + getStepDurationAtIndex(i), 0);
+			const end = start + getStepDurationAtIndex(index);
+			return { id: step.id, start, end };
+		}) || []
 	);
 
 	let currentStepTime = $derived(
@@ -289,13 +305,17 @@
 		const transitionDuration = 10; // 10 seconds to switch between exercises in superset
 		const totalExercises = currentStep.exercises?.length || 1;
 
-		// For supersets: exercise duration * number of exercises * sets + transition time between exercises (but not after the last exercise) + rest between sets
-		const totalExerciseTime = exerciseDuration * totalExercises * currentStep.sets;
+		// For supersets: sum per-exercise durations per set + transition time between exercises (but not after the last exercise) + rest between sets
+		const exerciseDurations: number[] = (currentStep.exercises || []).map((e: any) => e.duration || 0);
+		const perSetExerciseTime = totalExercises > 1 ? exerciseDurations.reduce((a, b) => a + b, 0) : exerciseDuration;
+		const totalExerciseTime = perSetExerciseTime * currentStep.sets;
 		const totalTransitionTime = transitionDuration * (totalExercises - 1) * currentStep.sets; // Only between exercises, not after the last one
 		const totalRestTime = restDuration * (currentStep.sets - 1);
 		const totalTime = totalExerciseTime + totalTransitionTime + totalRestTime;
 		const cycleTime =
-			exerciseDuration * totalExercises + transitionDuration * (totalExercises - 1) + restDuration;
+			(totalExercises > 1 ? exerciseDurations.reduce((a, b) => a + b, 0) : exerciseDuration) +
+			transitionDuration * (totalExercises - 1) +
+			restDuration;
 
 		let timeInExercise = stepRelativeTime;
 		let currentSet = 1;
@@ -325,7 +345,7 @@
 			const setStartTime = (set - 1) * cycleTime;
 			const setExerciseTime =
 				setStartTime +
-				exerciseDuration * totalExercises +
+				perSetExerciseTime +
 				transitionDuration * (totalExercises - 1);
 			const restEndTime = set < currentStep.sets ? setExerciseTime + restDuration : setExerciseTime;
 
@@ -343,7 +363,8 @@
 
 					for (let i = 0; i < totalExercises; i++) {
 						const exerciseStart = accumulatedTime;
-						const exerciseEnd = exerciseStart + exerciseTimePerExercise;
+						const currentExerciseDuration = totalExercises > 1 ? exerciseDurations[i] || 0 : exerciseTimePerExercise;
+						const exerciseEnd = exerciseStart + currentExerciseDuration;
 
 						if (timeInSet >= exerciseStart && timeInSet < exerciseEnd) {
 							// We're in the exercise phase of this exercise
@@ -351,7 +372,7 @@
 							const timeInCurrentExercise = timeInSet - exerciseStart;
 							isResting = false;
 							isTransitioning = false;
-							timeLeftInPhase = exerciseTimePerExercise - timeInCurrentExercise;
+							timeLeftInPhase = currentExerciseDuration - timeInCurrentExercise;
 							break;
 						}
 
@@ -375,10 +396,10 @@
 
 						// Move to next exercise - only add transition time if there's a next exercise
 						if (i < totalExercises - 1) {
-							accumulatedTime += exerciseTimePerExercise + transitionTimeBetweenExercises;
+							accumulatedTime += currentExerciseDuration + transitionTimeBetweenExercises;
 						} else {
 							// For the last exercise, only add the exercise time (no transition after)
-							accumulatedTime += exerciseTimePerExercise;
+							accumulatedTime += currentExerciseDuration;
 						}
 					}
 				} else if (set < currentStep.sets) {
@@ -1224,21 +1245,6 @@
 															{/each}
 														</div>
 													{/if}
-
-													<div class="flex items-center gap-1">
-														{#if isCurrentStep}
-															<div class="badge animate-pulse badge-xs badge-primary">
-																<div
-																	class="mr-1 h-1 w-1 animate-ping rounded-full bg-current"
-																></div>
-																Live
-															</div>
-														{:else if isPastStep}
-															<div class="badge badge-xs badge-success">Completed</div>
-														{:else}
-															<div class="badge badge-ghost badge-xs">Pending</div>
-														{/if}
-													</div>
 												</div>
 											</div>
 										</button>

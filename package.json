@@ -55,6 +55,7 @@
 		]
 	},
 	"dependencies": {
+		"runed": "^0.31.1",
 		"svelte-dnd-action": "^0.9.64"
 	}
 }

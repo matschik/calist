@@ -1,6 +1,13 @@
 export const db = {
 	exercises: [
 		{
+			id: "6958008f-7188-4d70-ba75-c6e0ee786076",
+			title: "Push-ups",
+			images: [{url: 'https://c.tenor.com/gI-8qCUEko8AAAAC/tenor.gif'}],
+			muscles: [],
+			description: ''
+		},
+		{
 			id: 'a74909ff-b865-48f1-a82e-18211a788215',
 			title: 'Negative Push-ups',
 			images: [{ url: '/exercises/negative-push-ups.gif' }],
@@ -165,7 +172,50 @@ export const db = {
 					rest: 120
 				}
 			]
-		}
+		},
+		{
+			id: '31da8a69-2ffd-4e78-98cc-d49331c25312',
+			title: 'Push Ups lvl 2',
+			tags: ['lvl 2'],
+			description: 'Master the fundamental pushing movement with progressive exercises',
+			benefits: ['Upper body strength', 'Core stability', 'Chest & triceps'],
+			exerciseLoops: [
+				{
+					exercises: [
+						{
+							id: '6958008f-7188-4d70-ba75-c6e0ee786076',
+							reps: 12
+						}
+					],
+					sets: 3,
+					rest: 120
+				},
+				{
+					exercises: [
+						{
+							id: 'a74909ff-b865-48f1-a82e-18211a788215',
+							reps: 8
+						}
+					],
+					sets: 3,
+					rest: 120
+				},
+				{
+					exercises: [
+						{
+							id: 'd4f55277-e441-4266-9b1f-df8d26ab3d96',
+							reps: 8
+						},
+						{
+							id: 'ab231895-b370-4bcc-a7ca-d58ec1608cf1',
+							duration: 60
+						}
+					],
+					sets: 4,
+					rest: 180
+				}
+			]
+		},
 	]
 };
 

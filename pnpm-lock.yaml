@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      runed:
+        specifier: ^0.31.1
+        version: 0.31.1(svelte@5.38.1)
       svelte-dnd-action:
         specifier: ^0.9.64
         version: 0.9.64(svelte@5.38.1)
@@ -1941,6 +1944,11 @@ packages:
   run-parallel@1.2.0:
     resolution: {integrity: sha512-5l4VyZR86LZ/lDxZTR6jqL8AFE2S0IFLMP26AbjsLVADxHdhB/c0GUsH+y39UfCi3dzz8OlQuPmnaJOMoDHQBA==}
 
+  runed@0.31.1:
+    resolution: {integrity: sha512-v3czcTnO+EJjiPvD4dwIqfTdHLZ8oH0zJheKqAHh9QMViY7Qb29UlAMRpX7ZtHh7AFqV60KmfxaJ9QMy+L1igQ==}
+    peerDependencies:
+      svelte: ^5.7.0
+
   sade@1.8.1:
     resolution: {integrity: sha512-xal3CZX1Xlo/k4ApwCFrHVACi9fBqJ7V+mwhBsuf/1IOKbBy098Fex+Wa/5QMubw09pSZ/u8EY8PWgevJsXp1A==}
     engines: {node: '>=6'}
@@ -3852,6 +3860,11 @@ snapshots:
   run-parallel@1.2.0:
     dependencies:
       queue-microtask: 1.2.3
+
+  runed@0.31.1(svelte@5.38.1):
+    dependencies:
+      esm-env: 1.2.2
+      svelte: 5.38.1
 
   sade@1.8.1:
     dependencies:
