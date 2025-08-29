@@ -3,14 +3,14 @@ export const db = {
 		{
 			id: "6958008f-7188-4d70-ba75-c6e0ee786076",
 			title: "Push-ups",
-			images: [{url: 'https://c.tenor.com/gI-8qCUEko8AAAAC/tenor.gif'}],
+			images: [{url: '/exercise-video/pushup.webm'}],
 			muscles: [],
 			description: ''
 		},
 		{
 			id: 'a74909ff-b865-48f1-a82e-18211a788215',
 			title: 'Negative Push-ups',
-			images: [{ url: '/exercises/negative-push-ups.gif' }],
+			images: [{ url: '/exercise-video/negative-push-ups.webm' }],
 			muscles: [],
 			description: ''
 		},
@@ -19,7 +19,7 @@ export const db = {
 			title: 'Scapula Push-ups',
 			images: [
 				{
-					url: '/exercises/scapula-push-ups.gif',
+					url: '/exercise-video/scapula-push-ups.webm',
 					crop: {
 						x: 0, // Position horizontale (%)
 						y: 100, // Position verticale (%)
@@ -34,35 +34,35 @@ export const db = {
 		{
 			id: 'ab231895-b370-4bcc-a7ca-d58ec1608cf1',
 			title: 'Plank Hold',
-			images: [{ url: '/exercises/plank-hold.gif' }],
+			images: [{ url: '/exercise-video/plank-hold.webm' }],
 			description:
 				'Hold a strong plank position. Keep your core tight, back straight, and maintain steady breathing.'
 		},
 		{
 			id: '888a4569-238e-403c-ae73-dbf862580d00',
 			title: 'Deep Squats',
-			images: [{ url: '/exercises/deep-squats.gif' }],
+			images: [{ url: '/exercise-video/deep-squats.webm' }],
 			description:
 				'Keep your back straight and your chest up. Lower your body slowly to the ground over 3-5 seconds. Reset to starting position.'
 		},
 		{
 			id: '384d6d6a-43b6-4b40-be7f-b3d34a720b9f',
 			title: 'Narrow Stance Squats',
-			images: [{ url: '/exercises/narrow-stance-squats.gif' }],
+			images: [{ url: '/exercise-video/narrow-stance-squats.webm' }],
 			description:
 				'Keep your feet close together. Maintain proper squat form with controlled movement and full range of motion.'
 		},
 		{
 			id: 'bc702648-afb7-44ac-a349-890c022e3dc',
 			title: 'Bodyweight Squats',
-			images: [{ url: '/exercises/bodyweight-squats.gif' }],
+			images: [{ url: '/exercise-video/bodyweight-squats.webm' }],
 			description:
 				'Standard bodyweight squats. Keep your back straight and your chest up. Lower your body slowly and return to starting position.'
 		},
 		{
 			id: 'e8f9a123-4567-89ab-cdef-0123456789ab',
 			title: 'Bent Over Barbell Rows',
-			images: [{ url: '/exercises/bent-over-barbell-rows.gif' }],
+			images: [{ url: '/exercise-video/bent-over-barbell-rows.webm' }],
 			description:
 				'Keep your back straight and hinge at the hips. Pull the barbell towards your lower chest, squeezing your shoulder blades together.'
 		},

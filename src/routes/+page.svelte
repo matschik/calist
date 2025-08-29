@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { db } from '$lib/data/workouts.js';
 	import { calculateWorkoutDuration } from '$lib/utils/duration';
+	import AnimatedMedia from '$lib/AnimatedMedia.svelte';
 
 	function getDuration(workout: any): string {
 		// Calculate total duration using the shared utility function
@@ -45,17 +46,26 @@
 					href="/workout/{getWorkoutSlug(workout)}"
 					class="block overflow-hidden rounded-lg border border-base-300 bg-base-100 shadow-sm transition-all duration-200 hover:scale-[1.02] hover:shadow-md"
 				>
-					<!-- Workout Image -->
+					<!-- Workout Image/Video -->
 					<figure class="relative h-48 overflow-hidden">
-						<img
-							src={getWorkoutImage(workout)}
-							alt={workout.title}
-							class="h-full w-full object-cover"
-						/>
+						{#if getWorkoutImage(workout).includes('.webm')}
+							<AnimatedMedia
+								src={getWorkoutImage(workout)}
+								alt={workout.title}
+								class="h-full w-full object-cover"
+								isPaused={false}
+							/>
+						{:else}
+							<img
+								src={getWorkoutImage(workout)}
+								alt={workout.title}
+								class="h-full w-full object-cover"
+							/>
+						{/if}
 					</figure>
 
 					<!-- Workout Content -->
-					<div class="p-6">
+					<div class="px-6 py-4">
 						<h3 class="mb-2 text-lg font-semibold text-base-content">{workout.title}</h3>
 						<p class="mb-4 line-clamp-2 text-sm text-base-content/70">{workout.description}</p>
 
@@ -67,11 +77,6 @@
 							<span class="flex items-center gap-1">
 								⏱️ {getDuration(workout)}
 							</span>
-						</div>
-
-						<!-- CTA -->
-						<div class="btn w-full cursor-pointer text-center text-sm btn-primary">
-							Start Workout
 						</div>
 					</div>
 				</a>

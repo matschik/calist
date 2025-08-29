@@ -5,8 +5,7 @@
 	let { children } = $props();
 
 	const navigation = [
-		{ name: 'Home', href: '/' },
-		{ name: 'Start Training', href: '/workout/push-ups-lvl-1', primary: true }
+		{ name: 'Start Training', href: '/workout/push-ups-lvl-1'}
 	];
 
 	let isMenuOpen = $state(false);
@@ -33,70 +32,14 @@
 <svelte:window on:keydown={handleKeydown} />
 
 <!-- Navigation -->
-<header class="sticky top-0 z-50 border-b border-base-300 bg-base-100">
+<header class="sticky top-0 z-100 border-b border-base-300 bg-base-100">
 	<nav class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
 		<div class="flex h-16 items-center justify-between">
 			<!-- Logo -->
 			<a href="/" class="flex items-center gap-3 transition-opacity hover:opacity-80">
 				<span class="text-xl font-bold text-base-content">Calist</span>
 			</a>
-
-			<!-- Desktop Navigation -->
-			<div class="hidden items-center gap-8 md:flex">
-				{#each navigation.filter((item) => !item.primary) as item}
-					<a
-						href={item.href}
-						class="text-base font-medium text-base-content transition-colors hover:text-primary"
-					>
-						{item.name}
-					</a>
-				{/each}
-				{#each navigation.filter((item) => item.primary) as item}
-					<a
-						href={item.href}
-						class="hover:bg-primary-focus rounded-lg bg-primary px-4 py-2 font-medium text-primary-content transition-colors"
-					>
-						{item.name}
-					</a>
-				{/each}
-			</div>
-
-			<!-- Mobile menu button -->
-			<button
-				type="button"
-				onclick={toggleMenu}
-				class="rounded-lg p-2 text-base-content transition-colors hover:bg-base-200 hover:text-primary md:hidden"
-				aria-label="Toggle menu"
-			>
-				<span class="iconify size-6 ph--list" aria-hidden="true"></span>
-			</button>
 		</div>
-
-		<!-- Mobile Navigation -->
-		{#if isMenuOpen}
-			<div class="border-t border-base-300 md:hidden">
-				<div class="space-y-1 px-2 pt-2 pb-3">
-					{#each navigation.filter((item) => !item.primary) as item}
-						<a
-							href={item.href}
-							onclick={closeMenu}
-							class="block rounded-md px-3 py-2 text-base font-medium text-base-content transition-colors hover:bg-base-200 hover:text-primary"
-						>
-							{item.name}
-						</a>
-					{/each}
-					{#each navigation.filter((item) => item.primary) as item}
-						<a
-							href={item.href}
-							onclick={closeMenu}
-							class="hover:bg-primary-focus block rounded-md bg-primary px-3 py-2 text-base font-medium text-primary-content transition-colors"
-						>
-							{item.name}
-						</a>
-					{/each}
-				</div>
-			</div>
-		{/if}
 	</nav>
 </header>
 
