@@ -60,6 +60,13 @@ export const db = {
 				'Standard bodyweight squats. Keep your back straight and your chest up. Lower your body slowly and return to starting position.'
 		},
 		{
+			id: 'd5e6f7g8-9h0i-1j2k-3l4m-5n6o7p8b9r0',
+			title: 'Bulgarian Split Squats',
+			images: [{ url: '/exercise-video/bulg.webm' }],
+			description:
+				'Place one foot behind you on an elevated surface. Lower your body by bending your front knee while keeping your back straight. Focus on balance and controlled movement.'
+		},
+		{
 			id: 'e8f9a123-4567-89ab-cdef-0123456789ab',
 			title: 'Bent Over Barbell Rows',
 			images: [{ url: '/exercise-video/bent-over-barbell-rows.webm' }],
@@ -216,6 +223,41 @@ export const db = {
 				}
 			]
 		},
+		{
+			id: '31da8a69-2ffd-4e78-98cc-d49331c25312',
+			title: 'Squats lvl 2',
+			tags: ['lvl 2'],
+			description: 'Master the fundamental pushing movement with progressive exercises',
+			benefits: ['Upper body strength', 'Core stability', 'Chest & triceps'],
+			exerciseLoops: [
+				{
+					exercises: [
+						{
+							id: 'd5e6f7g8-9h0i-1j2k-3l4m-5n6o7p8b9r0',
+							reps: 12,
+							repsText: "6 each leg"
+						}
+					],
+					sets: 3,
+					rest: 120
+				},
+				{
+					exercises: [
+						{
+							id: '384d6d6a-43b6-4b40-be7f-b3d34a720b9f',
+							reps: 10,
+							
+						},
+						{
+							id: '888a4569-238e-403c-ae73-dbf862580d00',
+							duration: 10
+						}
+					],
+					sets: 3,
+					rest: 180
+				}
+			]
+		},
 	]
 };
 
@@ -239,6 +281,7 @@ export interface ExerciseLoop {
 	exercises: Array<{
 		id: string;
 		reps?: number;
+		repsText?: string; // Text to display to user (e.g., "6 each leg")
 		duration?: number; // Duration in seconds for time-based exercises
 		tempo?: string;
 	}>;
