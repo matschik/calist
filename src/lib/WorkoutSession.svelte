@@ -87,6 +87,14 @@
 		}
 	}
 
+	function resetRestTime() {
+		if (currentStep && currentStepTime && currentStep.type === 'exercise' && currentSetInfo?.isResting) {
+			// Calculate the start time of the current rest period
+			const restStartTime = currentStepTime.start + (currentStepTime.end - currentStepTime.start) - currentStep.rest;
+			seekTo(restStartTime);
+		}
+	}
+
 	// Convert exerciseLoops to a flat array of steps for the timeline
 	function createSteps() {
 		// If no workout or exerciseLoops, return empty array
@@ -1130,6 +1138,18 @@
 																			aria-label="Skip to rest"
 																		>
 																			Rest
+																		</button>
+																	{/if}
+
+																	<!-- Reset Rest Button -->
+																	{#if currentStep?.type === 'exercise' && currentSetInfo?.isResting}
+																		<button
+																			class="btn btn-sm border-none font-medium bg-white/10 text-white hover:bg-white/20"
+																			onclick={resetRestTime}
+																			title="Reset rest timer to beginning"
+																			aria-label="Reset rest timer"
+																		>
+																			Reset Rest
 																		</button>
 																	{/if}
 
